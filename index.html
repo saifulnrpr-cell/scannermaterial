@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- 🟢 นำเข้า LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
@@ -18,6 +20,7 @@
 </head>
 <body class="text-slate-800 h-[100dvh] overflow-hidden flex flex-col bg-slate-50">
 
+    <!-- 🟢 Header แสดงชื่อผู้ใช้งานจาก LINE -->
     <div class="px-5 py-4 bg-white/90 backdrop-blur-xl flex justify-between items-center shrink-0 z-10 border-b border-slate-100 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
@@ -26,12 +29,13 @@
             <div>
                 <h1 class="text-base font-black text-slate-800 leading-tight">ระบบเบิกจ่ายวัสดุ</h1>
                 <div id="status-indicator" class="text-[10px] font-bold text-amber-500 flex items-center gap-1">
-                    <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div> กำลังเชื่อมต่อ...
+                    <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div> กำลังตรวจสอบสิทธิ์...
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- 🌟 พื้นที่หลัก (เครื่องมือ + รายการวัสดุ) -->
     <div class="flex-1 flex flex-col overflow-hidden relative">
         <div class="px-4 py-3 bg-white shrink-0 z-10 shadow-[0_10px_20px_-15px_rgba(0,0,0,0.05)]">
             <div class="flex items-center gap-2">
@@ -50,7 +54,6 @@
             </div>
         </div>
         
-        <!-- ปรับ pb-24 เพื่อไม่ให้รายการสุดท้ายถูกปุ่มลอยบัง -->
         <div id="pos-product-grid" class="flex-1 overflow-y-auto p-4 pb-24 custom-scrollbar grid grid-cols-2 md:grid-cols-3 gap-3 content-start"></div>
     </div>
 
@@ -58,12 +61,11 @@
     <div class="fixed bottom-6 right-6 z-40">
         <button onclick="toggleCartModal(true)" id="floating-cart-btn" class="w-16 h-16 bg-white border-2 border-slate-100 text-slate-400 rounded-full shadow-[0_10px_25px_rgba(0,0,0,0.1)] flex items-center justify-center relative transition-all duration-300 focus:outline-none active:scale-90">
             <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-            <!-- ป้ายแจ้งเตือนสีแดง (ซ่อนไว้ก่อนด้วย scale-0) -->
             <div id="floating-cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shadow-md border-2 border-white transition-all transform scale-0 origin-center">0</div>
         </button>
     </div>
 
-    <!-- Modal ตะกร้า -->
+    <!-- 🌟 Modal ตะกร้า -->
     <div id="cart-modal" class="fixed inset-0 z-50 bg-slate-50 flex flex-col transform translate-y-full transition-transform duration-300 ease-in-out">
         <div class="bg-white px-4 py-4 flex justify-between items-center shadow-sm z-10 shrink-0">
             <div class="flex items-center gap-3">
@@ -82,11 +84,12 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">วันที่ทำรายการ</label>
-                        <input type="date" id="pos-date" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-blue-400 focus:bg-white">
+                        <input type="date" id="pos-date" class="w-full px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 outline-none" readonly>
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">อ้างอิงผู้เบิก <span class="text-rose-500">*</span></label>
-                        <input type="text" id="pos-ref" list="reqList" placeholder="พิมพ์ชื่อ..." class="w-full px-3 py-2.5 bg-blue-50/50 border border-blue-200 rounded-xl text-xs font-bold text-blue-800 outline-none focus:border-blue-500 focus:bg-white">
+                        <!-- 🟢 ช่องชื่อผู้เบิก ถูกตั้งเป็น readonly เพราะดึงจากระบบ LINE อัตโนมัติ -->
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">อ้างอิงผู้เบิก (ล็อกอัตโนมัติ)</label>
+                        <input type="text" id="pos-ref" class="w-full px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-bold text-blue-800 outline-none shadow-inner" readonly>
                     </div>
                 </div>
                 <div>
@@ -103,7 +106,6 @@
             </button>
         </div>
     </div>
-    <datalist id="reqList"></datalist>
 
     <!-- Overlay Scanner -->
     <div id="scanner-overlay" class="hidden fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-sm flex flex-col">
@@ -132,9 +134,10 @@
 
     <script>
         // ==========================================
-        // 🚨 นำ Web App URL ของ Google Apps Script มาใส่ตรงนี้
+        // 🚨 ตั้งค่า URL และ LIFF ID
         // ==========================================
         const GAS_URL = "https://script.google.com/macros/s/AKfycbz_FvpCG7ZHmnfNtiBpAfvE-wlr80TadtEGUJfZjk2Kx2kLzEfDW0wSNRIVHWpGtnO_/exec"; 
+        const LIFF_ID = "2012505015-MGj5SCil"; // ไอดี LIFF จากภาพ
         
         let matStockData = [];
         let posCart = [];
@@ -142,19 +145,132 @@
         let posSearchTerm = '';
         let posCategory = 'all';
         let scanCooldown = false;
+        let userRealName = ""; // เก็บชื่อผู้เบิกที่ผูกกับ LINE
 
         const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
+        // 🟢 เริ่มต้นระบบเมื่อเปิดหน้าเว็บ (บังคับ Login LINE ก่อน)
         window.onload = function() {
             let ts = new Date();
             document.getElementById('pos-date').value = ts.getFullYear() + "-" + String(ts.getMonth() + 1).padStart(2, '0') + "-" + String(ts.getDate()).padStart(2, '0');
             
-            // 🌟 เริ่มแสดงหน้าจอ Loading ทันทีที่โหลดหน้าเว็บ
-            showGlobalLoading('กำลังเตรียมระบบ...', 'กำลังเชื่อมต่อและดึงข้อมูลคลังวัสดุ');
+            showGlobalLoading('กำลังเชื่อมต่อ LINE...', 'เพื่อยืนยันตัวตนการเข้าใช้งาน');
             
-            fetchStockData();
+            // 🟢 กำหนดค่า LIFF
+            liff.init({ liffId: LIFF_ID }).then(() => {
+                if (!liff.isLoggedIn()) {
+                    liff.login(); // ถ้ายังไม่ล็อกอิน ให้เด้งไปหน้า LINE Login
+                } else {
+                    liff.getProfile().then(profile => {
+                        verifyLiffUser(profile);
+                    }).catch(err => {
+                        hideGlobalLoading();
+                        Swal.fire('Error', 'ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้', 'error');
+                    });
+                }
+            }).catch(err => {
+                hideGlobalLoading();
+                Swal.fire('ระบบขัดข้อง', 'ตั้งค่า LIFF ID ไม่ถูกต้อง หรือเบราว์เซอร์ไม่รองรับ', 'error');
+            });
         };
 
+        // 🟢 ฟังก์ชันส่ง LINE ID ไปเช็คสิทธิ์ที่หลังบ้าน
+        function verifyLiffUser(profile) {
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId })
+            }).then(r => r.json()).then(res => {
+                if (res.status === 'success') {
+                    // 🎉 เคยลงทะเบียนแล้ว ให้เข้าใช้งานได้เลย
+                    userRealName = res.user.name;
+                    document.getElementById('pos-ref').value = userRealName; // ล็อกชื่อผู้เบิกอัตโนมัติ
+                    
+                    // เปลี่ยนรูปและชื่อมุมซ้ายบน
+                    let statusEl = document.getElementById('status-indicator');
+                    statusEl.className = 'text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100';
+                    statusEl.innerHTML = `<img src="${profile.pictureUrl}" class="w-4 h-4 rounded-full"> ${userRealName}`;
+                    
+                    // โหลดฐานข้อมูลวัสดุมาแสดง
+                    fetchStockData();
+
+                } else if (res.status === 'not_found') {
+                    // 🛑 สแกนครั้งแรก ยังไม่เคยลงทะเบียน เด้งหน้าต่างให้พิมพ์ชื่อ-สกุลจริง
+                    hideGlobalLoading();
+                    Swal.fire({
+                        title: 'ลงทะเบียนใช้งานครั้งแรก',
+                        html: `
+                            <div class="text-center font-prompt mt-2">
+                                <img src="${profile.pictureUrl}" class="w-20 h-20 rounded-full mx-auto mb-3 shadow-md border-2 border-white">
+                                <p class="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">LINE: ${profile.displayName}</p>
+                                <p class="text-sm font-medium text-slate-700 mb-2 text-left">กรุณาระบุชื่อ-นามสกุลจริงของคุณ เพื่อใช้เป็นชื่อ "อ้างอิงผู้เบิก" ในระบบ:</p>
+                                <input type="text" id="reg-realname" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-prompt text-sm focus:border-blue-400 focus:bg-white outline-none transition-colors" placeholder="ระบุ ชื่อ-นามสกุล...">
+                            </div>`,
+                        confirmButtonText: 'บันทึกและเข้าใช้งาน',
+                        allowOutsideClick: false,
+                        buttonsStyling: false,
+                        customClass: {
+                            popup: '!rounded-[2rem] p-6 shadow-2xl',
+                            confirmButton: 'w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-xl shadow-md transition-all mt-4'
+                        },
+                        preConfirm: () => {
+                            const name = document.getElementById('reg-realname').value.trim();
+                            if (!name) { Swal.showValidationMessage('กรุณาระบุชื่อ-นามสกุลให้ครบถ้วน'); return false; }
+                            return name;
+                        }
+                    }).then(result => {
+                        if (result.isConfirmed) {
+                            showGlobalLoading('กำลังลงทะเบียน...', 'บันทึกข้อมูลและสร้างสิทธิ์เข้าใช้งาน');
+                            fetch(GAS_URL, {
+                                method: 'POST',
+                                body: JSON.stringify({ action: 'registerLiffUser', userId: profile.userId, lineName: profile.displayName, realName: result.value })
+                            }).then(r => r.json()).then(regRes => {
+                                if (regRes.status === 'success') {
+                                    Swal.fire({title:'สำเร็จ!', text:'ลงทะเบียนเรียบร้อยแล้ว', icon:'success', timer:1500, showConfirmButton:false, customClass:{popup:'!rounded-3xl'}}).then(() => {
+                                        showGlobalLoading('กำลังเข้าสู่ระบบ...', '');
+                                        verifyLiffUser(profile); // รีโหลดตรวจสอบสิทธิ์อีกรอบ
+                                    });
+                                } else {
+                                    hideGlobalLoading();
+                                    Swal.fire('เกิดข้อผิดพลาด', regRes.message, 'error');
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    hideGlobalLoading();
+                    Swal.fire({title:'ไม่อนุญาต', text: res.message, icon:'error', allowOutsideClick:false, showConfirmButton:false, customClass:{popup:'!rounded-3xl'}});
+                }
+            }).catch(e => {
+                hideGlobalLoading();
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสิทธิ์ได้', 'error');
+            });
+        }
+
+        function fetchStockData() {
+            showGlobalLoading('กำลังดึงข้อมูลวัสดุ...', 'ดึงข้อมูลคลังจากฐานข้อมูล');
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'fetchMaterialOnly' }) })
+            .then(r => r.json())
+            .then(result => {
+                hideGlobalLoading(); 
+                if (result.status === 'success') {
+                    matStockData = result.matStockData || [];
+                    matStockData.forEach((row, idx) => { row.originalIndex = idx + 1; });
+
+                    let cats = [...new Set(matStockData.map(r => String(r[4]||'').trim()).filter(c => c))].sort();
+                    document.getElementById('pos-cat').innerHTML = '<option value="all">ทั้งหมด</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+                    renderPOSProducts();
+                    renderPOSCart();
+                }
+            }).catch(e => {
+                hideGlobalLoading();
+                Swal.fire({ title:'เกิดข้อผิดพลาด', text: 'ไม่สามารถดึงข้อมูลคลังได้', icon:'error', customClass:{popup:'!rounded-3xl'} });
+            });
+        }
+
+        // ==========================================
+        // 🟢 ส่วนที่เหลือของระบบ UI เหมือนเดิม
+        // ==========================================
         window.toggleCartModal = function(show) {
             const modal = document.getElementById('cart-modal');
             if (show) {
@@ -167,42 +283,6 @@
                 modal.classList.add('translate-y-full');
             }
         };
-
-        function fetchStockData() {
-            if (GAS_URL === "YOUR_WEB_APP_URL_HERE") {
-                hideGlobalLoading();
-                return;
-            }
-
-            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'fetchMaterialOnly' }) })
-            .then(r => r.json())
-            .then(result => {
-                hideGlobalLoading(); // 🌟 ปิดหน้าจอ Loading เมื่อโหลดสำเร็จ
-                
-                if (result.status === 'success') {
-                    matStockData = result.matStockData || [];
-                    let matHistoryData = result.matHistoryData || [];
-                    matStockData.forEach((row, idx) => { row.originalIndex = idx + 1; });
-
-                    let cats = [...new Set(matStockData.map(r => String(r[4]||'').trim()).filter(c => c))].sort();
-                    document.getElementById('pos-cat').innerHTML = '<option value="all">ทั้งหมด</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
-
-                    let requesters = [...new Set(matHistoryData.filter(h => h[2] === "เบิกจ่าย (ตัดสต๊อก)").map(h => String(h[3]||'').trim()).filter(r => r && r !== '-'))].sort();
-                    document.getElementById('reqList').innerHTML = requesters.map(r => `<option value="${r}">`).join('');
-
-                    let statusEl = document.getElementById('status-indicator');
-                    statusEl.className = 'text-[10px] font-bold text-emerald-600 flex items-center gap-1';
-                    statusEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-emerald-500"></div> ออนไลน์';
-
-                    renderPOSProducts();
-                    renderPOSCart();
-                }
-            }).catch(e => {
-                hideGlobalLoading(); // 🌟 ปิดหน้าจอ Loading เมื่อเกิด Error
-                document.getElementById('status-indicator').innerHTML = '<span class="text-rose-500">❌ ออฟไลน์</span>';
-                Swal.fire({ title:'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', icon:'error', customClass:{popup:'!rounded-3xl'} });
-            });
-        }
 
         const getCategoryTheme = (category) => {
             if (category.includes('คอมพิวเตอร์') || category.includes('ไอที')) return { border: 'from-blue-600 to-indigo-500', text: 'text-indigo-600', badge: 'from-blue-500 to-indigo-500' };
@@ -249,12 +329,10 @@
                 let actionCall = isDisable ? '' : `addToCart(${row.originalIndex}, '${code}', '${barcode}', '${safeName}', ${qty}, '${unit}', ${price})`;
 
                 html += `
-                <div class="relative w-full aspect-square rounded-[1.25rem] bg-gradient-to-br ${theme.border} p-[2px] shadow-sm active:scale-95 transition-all ${isDisable ? 'opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1'}" onclick="${actionCall}">
-                    <div class="w-full h-full bg-white rounded-[calc(1.25rem-2px)] flex flex-col overflow-hidden relative">
+                <div class="relative w-full aspect-square rounded-2xl bg-gradient-to-br ${theme.border} p-[2px] shadow-sm active:scale-95 transition-all ${isDisable ? 'opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1'}" onclick="${actionCall}">
+                    <div class="w-full h-full bg-white rounded-[calc(1rem-2px)] flex flex-col overflow-hidden relative">
                         ${cartQty > 0 ? `<div class="absolute top-1.5 right-1.5 bg-rose-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">${cartQty}</div>` : ''}
-                        
                         <div class="flex-1 min-h-0 w-full bg-white flex items-center justify-center p-2">${imgTag}</div>
-                        
                         <div class="flex justify-between items-center px-2 py-1.5 gap-1 shrink-0">
                             <h4 class="text-[11px] font-black text-slate-800 truncate flex-1">${name}</h4>
                             <div class="bg-gradient-to-r ${theme.badge} text-white rounded px-1.5 py-0.5 flex items-baseline gap-0.5 shrink-0">
@@ -262,7 +340,6 @@
                                 <span class="text-[8px] font-bold leading-none">${unit}</span>
                             </div>
                         </div>
-                        
                         <div class="border-t border-slate-100 flex justify-between items-center px-2 py-1.5 shrink-0">
                             <span class="text-[8px] font-black ${theme.text} truncate pr-1">${cat}</span>
                             <span class="text-[8px] font-black ${theme.text} shrink-0">${loc}</span>
@@ -302,7 +379,6 @@
             if(posCart.length === 0) toggleCartModal(false);
         }
 
-        // 🌟 อัปเดต UI ของปุ่มตะกร้าแบบลอย (FAB) 
         window.renderPOSCart = function() {
             let container = document.getElementById('pos-cart-items');
             let mainBtn = document.getElementById('floating-cart-btn');
@@ -310,18 +386,13 @@
             
             document.getElementById('modal-cart-count').innerText = posCart.length + " รายการ";
 
-            // กรณีตะกร้าว่าง
             if (posCart.length === 0) {
                 container.innerHTML = '<div class="py-10 text-center text-slate-400 font-bold">ตะกร้าว่างเปล่า</div>';
-                
-                // ให้ปุ่มกลับเป็นสีขาว/เทา และซ่อนตัวเลขสีแดง
                 mainBtn.className = "w-16 h-16 bg-white border-2 border-slate-100 text-slate-400 rounded-full shadow-[0_10px_25px_rgba(0,0,0,0.1)] flex items-center justify-center relative transition-all duration-300 focus:outline-none";
                 mainBadge.classList.replace('scale-100', 'scale-0'); 
                 return;
             }
 
-            // กรณีมีของในตะกร้า
-            // เปลี่ยนปุ่มเป็นสีน้ำเงิน/ม่วง และโชว์ตัวเลขสีแดง
             mainBtn.className = "w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-[0_10px_25px_rgba(37,99,235,0.4)] flex items-center justify-center relative transition-all duration-300 focus:outline-none active:scale-90 hover:-translate-y-1";
             mainBadge.classList.replace('scale-0', 'scale-100'); 
             mainBadge.innerText = posCart.length;
@@ -353,10 +424,7 @@
         function openScanner() {
             document.getElementById('scanner-overlay').classList.remove('hidden');
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                fps: 20, 
-                qrbox: {width: 250, height: 250}, 
-                aspectRatio: 1.0, 
-                showTorchButtonIfSupported: true
+                fps: 20, qrbox: {width: 250, height: 250}, aspectRatio: 1.0, showTorchButtonIfSupported: true
             }, false);
             html5QrcodeScanner.render(onScanSuccess);
         }
@@ -474,7 +542,6 @@
             renderPOSProducts();
         }
 
-        // 🟢 Loading UI
         let loaderInterval;
         function showGlobalLoading(title = 'LOADING....', desc = '') {
             const loader = document.getElementById('modern-loader');
@@ -522,7 +589,7 @@
         window.submitPOS = function() {
             let ref = document.getElementById('pos-ref').value.trim();
             if(!ref) {
-                Swal.fire({title: 'ข้อมูลไม่ครบ', text: 'กรุณาระบุ ชื่อผู้เบิก / อ้างอิง', icon: 'warning', confirmButtonColor: '#3b82f6', customClass:{popup:'!rounded-[2rem]'}});
+                Swal.fire({title: 'ข้อมูลไม่ครบ', text: 'ชื่อผู้เบิกจะถูกใส่ให้อัตโนมัติจาก LINE (หากไม่มี โปรดตรวจสอบการล็อกอิน)', icon: 'warning', confirmButtonColor: '#3b82f6', customClass:{popup:'!rounded-[2rem]'}});
                 return;
             }
 
@@ -569,9 +636,9 @@
                     });
                     
                     posCart = [];
-                    document.getElementById('pos-ref').value = '';
                     document.getElementById('pos-remark').value = '';
                     toggleCartModal(false);
+                    // กลับไปโหลดข้อมูลใหม่ แต่ข้ามขั้นตอนเช็ค LINE เพื่อไม่ให้หน้าจอกระตุก
                     fetchStockData();
                 } else {
                     Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message || 'ไม่ทราบสาเหตุจากเซิร์ฟเวอร์', icon:'error', customClass:{popup:'!rounded-3xl'} });
