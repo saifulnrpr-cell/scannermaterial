@@ -175,37 +175,48 @@
         };
 
         // 🟢 ฟังก์ชันส่ง LINE ID ไปเช็คสิทธิ์ที่หลังบ้าน
+        // 🟢 ฟังก์ชันส่ง LINE ID ไปเช็คสิทธิ์ที่หลังบ้าน (เพิ่มระบบรออนุมัติ)
         function verifyLiffUser(profile) {
             fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId })
             }).then(r => r.json()).then(res => {
                 if (res.status === 'success') {
-                    // 🎉 เคยลงทะเบียนแล้ว ให้เข้าใช้งานได้เลย
+                    // 🎉 เคยลงทะเบียนและ "แอดมินอนุมัติแล้ว"
                     userRealName = res.user.name;
-                    document.getElementById('pos-ref').value = userRealName; // ล็อกชื่อผู้เบิกอัตโนมัติ
+                    document.getElementById('pos-ref').value = userRealName; 
                     
-                    // เปลี่ยนรูปและชื่อมุมซ้ายบน
                     let statusEl = document.getElementById('status-indicator');
                     statusEl.className = 'text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100';
                     statusEl.innerHTML = `<img src="${profile.pictureUrl}" class="w-4 h-4 rounded-full"> ${userRealName}`;
                     
-                    // โหลดฐานข้อมูลวัสดุมาแสดง
                     fetchStockData();
 
+                } else if (res.status === 'pending_approval') {
+                    // 🛑 ลงทะเบียนแล้ว แต่ยัง "รออนุมัติ"
+                    hideGlobalLoading();
+                    Swal.fire({
+                        title: '<span class="text-xl font-black text-amber-500">รอการอนุมัติ</span>',
+                        html: '<p class="text-slate-600 font-prompt text-sm mt-2">บัญชีของคุณลงทะเบียนเรียบร้อยแล้ว<br>แต่ยังไม่ได้รับการเปิดสิทธิ์จากผู้ดูแลระบบ<br><br><span class="text-xs text-rose-500 font-bold bg-rose-50 px-3 py-1.5 rounded-lg">*โปรดแจ้งแอดมินให้เปลี่ยนสถานะเป็น "ปกติ"</span></p>',
+                        icon: 'info',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        customClass: { popup: '!rounded-[2rem] shadow-2xl' }
+                    });
+
                 } else if (res.status === 'not_found') {
-                    // 🛑 สแกนครั้งแรก ยังไม่เคยลงทะเบียน เด้งหน้าต่างให้พิมพ์ชื่อ-สกุลจริง
+                    // 🛑 สแกนครั้งแรก ยังไม่เคยลงทะเบียน
                     hideGlobalLoading();
                     Swal.fire({
                         title: 'ลงทะเบียนใช้งานครั้งแรก',
                         html: `
                             <div class="text-center font-prompt mt-2">
                                 <img src="${profile.pictureUrl}" class="w-20 h-20 rounded-full mx-auto mb-3 shadow-md border-2 border-white">
-                                <p class="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">LINE: ${profile.displayName}</p>
-                                <p class="text-sm font-medium text-slate-700 mb-2 text-left">กรุณาระบุชื่อ-นามสกุลจริงของคุณ เพื่อใช้เป็นชื่อ "อ้างอิงผู้เบิก" ในระบบ:</p>
-                                <input type="text" id="reg-realname" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-prompt text-sm focus:border-blue-400 focus:bg-white outline-none transition-colors" placeholder="ระบุ ชื่อ-นามสกุล...">
+                                <p class="text-[10px] font-bold text-slate-400 mb-4 uppercase tracking-widest">LINE: ${profile.displayName}</p>
+                                <p class="text-sm font-bold text-slate-700 mb-2 text-left">ระบุชื่อ-นามสกุลจริงของคุณ เพื่อใช้เป็น "อ้างอิงผู้เบิก" ในระบบ:</p>
+                                <input type="text" id="reg-realname" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-prompt text-sm focus:border-blue-400 focus:bg-white outline-none transition-colors shadow-inner" placeholder="ระบุ ชื่อ-นามสกุล...">
                             </div>`,
-                        confirmButtonText: 'บันทึกและเข้าใช้งาน',
+                        confirmButtonText: 'บันทึกข้อมูล',
                         allowOutsideClick: false,
                         buttonsStyling: false,
                         customClass: {
@@ -224,13 +235,18 @@
                                 method: 'POST',
                                 body: JSON.stringify({ action: 'registerLiffUser', userId: profile.userId, lineName: profile.displayName, realName: result.value })
                             }).then(r => r.json()).then(regRes => {
-                                if (regRes.status === 'success') {
-                                    Swal.fire({title:'สำเร็จ!', text:'ลงทะเบียนเรียบร้อยแล้ว', icon:'success', timer:1500, showConfirmButton:false, customClass:{popup:'!rounded-3xl'}}).then(() => {
-                                        showGlobalLoading('กำลังเข้าสู่ระบบ...', '');
-                                        verifyLiffUser(profile); // รีโหลดตรวจสอบสิทธิ์อีกรอบ
+                                hideGlobalLoading();
+                                if (regRes.status === 'pending_approval') {
+                                    // แจ้งเตือนว่าลงทะเบียนเสร็จ ให้รอแอดมิน
+                                    Swal.fire({
+                                        title: '<span class="text-xl font-black text-emerald-600">ลงทะเบียนสำเร็จ!</span>',
+                                        html: '<p class="text-slate-600 font-prompt text-sm mt-2">ระบบบันทึกข้อมูลของคุณแล้ว<br><span class="text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-lg mt-2 inline-block">กรุณารอแอดมินอนุมัติสิทธิ์</span><br><br><span class="text-xs text-slate-400">ก่อนเข้าใช้งานระบบเบิกจ่ายครับ</span></p>',
+                                        icon: 'success',
+                                        allowOutsideClick: false,
+                                        showConfirmButton: false,
+                                        customClass: { popup: '!rounded-[2rem] shadow-2xl' }
                                     });
                                 } else {
-                                    hideGlobalLoading();
                                     Swal.fire('เกิดข้อผิดพลาด', regRes.message, 'error');
                                 }
                             });
@@ -238,11 +254,11 @@
                     });
                 } else {
                     hideGlobalLoading();
-                    Swal.fire({title:'ไม่อนุญาต', text: res.message, icon:'error', allowOutsideClick:false, showConfirmButton:false, customClass:{popup:'!rounded-3xl'}});
+                    Swal.fire({title:'ไม่อนุญาต', text: res.message, icon:'error', allowOutsideClick:false, showConfirmButton:false, customClass:{popup:'!rounded-[2rem]'}});
                 }
             }).catch(e => {
                 hideGlobalLoading();
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสิทธิ์ได้', 'error');
+                Swal.fire({title:'ข้อผิดพลาด', text:'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสิทธิ์ได้', icon:'error', customClass:{popup:'!rounded-[2rem]'}});
             });
         }
 
