@@ -510,7 +510,7 @@
             }, 400); 
         }
 
-        // 🟢 ยืนยันการตัดจ่าย
+       // 🟢 ยืนยันการตัดจ่าย (แก้ไขโครงสร้าง Data Payload ให้ตรงกับฝั่ง GAS)
         window.submitPOS = function() {
             let ref = document.getElementById('pos-ref').value.trim();
             if(!ref) {
@@ -529,20 +529,28 @@
 
             showGlobalLoading('กำลังบันทึกข้อมูล...', 'ระบบกำลังตัดสต๊อกและอัปเดตฐานข้อมูล');
 
-            // 1. จัดกลุ่มข้อมูลให้อยู่ในก้อนเดียวกัน
+            // 1. จัดกลุ่มข้อมูลให้อยู่ในก้อนเดียวกัน (Data Payload)
             let payloadData = {
                 date: finalSaveDate,
                 ref: ref,
                 remark: remark,
-                items: posCart.map(c => ({ code: c.code, barcode: c.barcode, name: c.name, qty: c.qty, unit: c.unit, price: c.price }))
+                items: posCart.map(c => ({ 
+                    code: c.code, 
+                    barcode: c.barcode, 
+                    name: c.name, 
+                    qty: c.qty, 
+                    unit: c.unit, 
+                    price: c.price 
+                }))
             };
 
-            // 2. ห่อข้อมูลทั้งหมดด้วย action และ data ก่อนส่ง
+            // 2. ห่อข้อมูลทั้งหมดด้วย action และ data ก่อนส่งไปยัง GAS
             let requestBody = {
                 action: 'dispenseMaterial',
-                data: JSON.stringify(payloadData) 
+                data: JSON.stringify(payloadData) // แปลง Payload เป็น String ตามที่ GAS ต้องการ
             };
 
+            // ส่งข้อมูลไปยัง Google Apps Script
             fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify(requestBody)
@@ -555,11 +563,11 @@
                         customClass:{popup:'!rounded-[2rem]'} 
                     });
                     
-                    posCart = [];
+                    posCart = []; // เคลียร์ตะกร้า
                     document.getElementById('pos-ref').value = '';
                     document.getElementById('pos-remark').value = '';
-                    toggleCartModal(false);
-                    fetchStockData();
+                    toggleCartModal(false); // ปิด Modal ตะกร้า
+                    fetchStockData(); // รีเฟรชข้อมูลสต๊อกใหม่
                 } else {
                     Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message || 'ไม่ทราบสาเหตุจากเซิร์ฟเวอร์', icon:'error', customClass:{popup:'!rounded-3xl'} });
                 }
