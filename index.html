@@ -509,7 +509,7 @@
             }, 400); 
         }
 
-        // 🟢 ยืนยันการตัดจ่าย
+       // 🟢 ยืนยันการตัดจ่าย (แก้ไขโครงสร้าง Data Payload)
         window.submitPOS = function() {
             let ref = document.getElementById('pos-ref').value.trim();
             if(!ref) {
@@ -528,17 +528,24 @@
 
             showGlobalLoading('กำลังบันทึกข้อมูล...', 'ระบบกำลังตัดสต๊อกและอัปเดตฐานข้อมูล');
 
-            let payload = {
-                action: 'dispenseMaterial',
+            // 1. จัดกลุ่มข้อมูลให้อยู่ในก้อนเดียวกัน
+            let payloadData = {
                 date: finalSaveDate,
                 ref: ref,
                 remark: remark,
                 items: posCart.map(c => ({ code: c.code, barcode: c.barcode, name: c.name, qty: c.qty, unit: c.unit, price: c.price }))
             };
 
+            // 2. ห่อข้อมูลทั้งหมดด้วย action และ data ก่อนส่ง (จุดที่แก้ไข)
+            let requestBody = {
+                action: 'dispenseMaterial',
+                data: JSON.stringify(payloadData) // ต้องแปลงชุดข้อมูลเป็น String เพื่อให้หลังบ้านอ่านค่าได้ถูกต้อง
+            };
+
+            // ส่งข้อมูลไปยัง Google Apps Script
             fetch(GAS_URL, {
                 method: 'POST',
-                body: JSON.stringify(payload)
+                body: JSON.stringify(requestBody)
             }).then(r => r.json()).then(res => {
                 hideGlobalLoading();
                 if (res.status === 'success') {
@@ -554,11 +561,11 @@
                     toggleCartModal(false);
                     fetchStockData();
                 } else {
-                    Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message, icon:'error', customClass:{popup:'!rounded-3xl'} });
+                    Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message || 'ไม่ทราบสาเหตุจากเซิร์ฟเวอร์', icon:'error', customClass:{popup:'!rounded-3xl'} });
                 }
             }).catch(e => {
                 hideGlobalLoading();
-                Swal.fire({ title:'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon:'error', customClass:{popup:'!rounded-3xl'} });
+                Swal.fire({ title:'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (' + e.message + ')', icon:'error', customClass:{popup:'!rounded-3xl'} });
             });
         }
     </script>
