@@ -189,7 +189,7 @@
         function fetchStockData() {
             if (GAS_URL === "YOUR_WEB_APP_URL_HERE") return;
 
-            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'fetchData' }) })
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'fetchMaterialOnly' }) })
             .then(r => r.json())
             .then(result => {
                 if (result.status === 'success') {
