@@ -337,7 +337,6 @@
         // 🟢 กล้องสแกน
         function openScanner() {
             document.getElementById('scanner-overlay').classList.remove('hidden');
-            // ปรับกล้องให้ลื่นไหลและจับง่ายขึ้น (20 FPS และปรับขนาดกรอบ)
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
                 fps: 20, 
                 qrbox: {width: 250, height: 250}, 
@@ -433,8 +432,10 @@
             } else {
                 // ไม่พบวัสดุ
                 Swal.fire({
-                    title: 'ไม่พบข้อมูล', text: 'บาร์โค้ดนี้ไม่มีในระบบคลัง', icon: 'warning',
-                    confirmButtonText: 'ลองอีกครั้ง', confirmButtonColor: '#3b82f6', customClass: { popup: '!rounded-3xl' }
+                    title: '<span class="text-xl font-black text-rose-500">ไม่พบข้อมูล</span>', 
+                    html: '<p class="text-slate-500 font-prompt">บาร์โค้ด <span class="font-bold text-slate-800">"'+ barcode +'"</span> ไม่มีในระบบคลังวัสดุครับ</p>', 
+                    icon: 'warning',
+                    confirmButtonText: 'ลองสแกนอีกครั้ง', confirmButtonColor: '#3b82f6', customClass: { popup: '!rounded-[2rem]' }
                 }).then(() => {
                     scanCooldown = false;
                     if (html5QrcodeScanner) html5QrcodeScanner.resume();
@@ -509,7 +510,7 @@
             }, 400); 
         }
 
-       // 🟢 ยืนยันการตัดจ่าย (แก้ไขโครงสร้าง Data Payload)
+        // 🟢 ยืนยันการตัดจ่าย
         window.submitPOS = function() {
             let ref = document.getElementById('pos-ref').value.trim();
             if(!ref) {
@@ -536,13 +537,12 @@
                 items: posCart.map(c => ({ code: c.code, barcode: c.barcode, name: c.name, qty: c.qty, unit: c.unit, price: c.price }))
             };
 
-            // 2. ห่อข้อมูลทั้งหมดด้วย action และ data ก่อนส่ง (จุดที่แก้ไข)
+            // 2. ห่อข้อมูลทั้งหมดด้วย action และ data ก่อนส่ง
             let requestBody = {
                 action: 'dispenseMaterial',
-                data: JSON.stringify(payloadData) // ต้องแปลงชุดข้อมูลเป็น String เพื่อให้หลังบ้านอ่านค่าได้ถูกต้อง
+                data: JSON.stringify(payloadData) 
             };
 
-            // ส่งข้อมูลไปยัง Google Apps Script
             fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify(requestBody)
