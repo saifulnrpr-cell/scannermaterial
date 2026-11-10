@@ -150,33 +150,47 @@
         const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
         // 🟢 เริ่มต้นระบบเมื่อเปิดหน้าเว็บ (บังคับ Login LINE ก่อน)
+        // 🟢 เริ่มต้นระบบเมื่อเปิดหน้าเว็บ (บังคับ Login LINE ก่อน)
         window.onload = function() {
             let ts = new Date();
             document.getElementById('pos-date').value = ts.getFullYear() + "-" + String(ts.getMonth() + 1).padStart(2, '0') + "-" + String(ts.getDate()).padStart(2, '0');
             
             showGlobalLoading('กำลังเชื่อมต่อระบบ...', 'เพื่อยืนยันตัวตนการเข้าใช้งาน');
             
-            // 🟢 กำหนดค่า LIFF แบบปลอดภัย
+            // 🟢 กำหนดค่า LIFF แบบปลอดภัย และป้องกัน Error ใน LINE In-App Browser
             liff.init({ liffId: LIFF_ID }).then(() => {
-                if (!liff.isLoggedIn()) {
-                    liff.login();
+                
+                // 1. เช็คว่าเปิดใน LINE In-App Browser หรือไม่
+                if (liff.isInClient()) {
+                    // ถ้าอยู่ในแอป LINE ให้ดึงโปรไฟล์เลย ไม่ต้องสั่ง login ซ้ำ
+                    getLiffProfileAndVerify();
                 } else {
-                    // รอให้ LIFF พร้อมสมบูรณ์จริงๆ ก่อนดึงโปรไฟล์
-                    liff.ready.then(() => {
-                        liff.getProfile().then(profile => {
-                            verifyLiffUser(profile);
-                        }).catch(err => {
-                            hideGlobalLoading();
-                            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้ กรุณาลองใหม่', 'error');
-                        });
-                    });
+                    // 2. ถ้าเปิดบนเบราว์เซอร์ปกติ (Chrome, Safari) ค่อยเช็คสถานะการล็อกอิน
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                    } else {
+                        getLiffProfileAndVerify();
+                    }
                 }
+                
             }).catch(err => {
                 hideGlobalLoading();
                 console.error("LIFF Init Error:", err);
-                Swal.fire('ระบบขัดข้อง', 'ตั้งค่า LIFF ID ไม่ถูกต้อง หรือหมดอายุ (รหัสข้อผิดพลาด: ' + err.code + ')', 'error');
+                Swal.fire('ระบบขัดข้อง', 'ไม่สามารถเริ่มต้นระบบ LIFF ได้ (รหัส: ' + err.code + ')', 'error');
             });
         };
+
+        // 🟢 ฟังก์ชันย่อยสำหรับดึง Profile และส่งไปตรวจสอบ
+        function getLiffProfileAndVerify() {
+            liff.ready.then(() => {
+                liff.getProfile().then(profile => {
+                    verifyLiffUser(profile);
+                }).catch(err => {
+                    hideGlobalLoading();
+                    Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้ กรุณาลองใหม่', 'error');
+                });
+            });
+        }
 
         // 🟢 ฟังก์ชันส่ง LINE ID ไปเช็คสิทธิ์ที่หลังบ้าน
         function verifyLiffUser(profile) {
