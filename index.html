@@ -137,7 +137,7 @@
         // 🚨 ตั้งค่า URL และ LIFF ID
         // ==========================================
         const GAS_URL = "https://script.google.com/macros/s/AKfycbz_FvpCG7ZHmnfNtiBpAfvE-wlr80TadtEGUJfZjk2Kx2kLzEfDW0wSNRIVHWpGtnO_/exec"; 
-        const LIFF_ID = "2012505015-MGj5SCil"; // ไอดี LIFF จากภาพ
+        const LIFF_ID = "2012505015-MGj5SCil"; // ไอดี LIFF ของคุณ
         
         let matStockData = [];
         let posCart = [];
@@ -145,7 +145,7 @@
         let posSearchTerm = '';
         let posCategory = 'all';
         let scanCooldown = false;
-        let userRealName = ""; // เก็บชื่อผู้เบิกที่ผูกกับ LINE
+        let userRealName = ""; 
 
         const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
@@ -154,35 +154,40 @@
             let ts = new Date();
             document.getElementById('pos-date').value = ts.getFullYear() + "-" + String(ts.getMonth() + 1).padStart(2, '0') + "-" + String(ts.getDate()).padStart(2, '0');
             
-            showGlobalLoading('กำลังเชื่อมต่อ LINE...', 'เพื่อยืนยันตัวตนการเข้าใช้งาน');
+            showGlobalLoading('กำลังเชื่อมต่อระบบ...', 'เพื่อยืนยันตัวตนการเข้าใช้งาน');
             
-            // 🟢 กำหนดค่า LIFF
+            // 🟢 กำหนดค่า LIFF แบบปลอดภัย
             liff.init({ liffId: LIFF_ID }).then(() => {
                 if (!liff.isLoggedIn()) {
-                    liff.login(); // ถ้ายังไม่ล็อกอิน ให้เด้งไปหน้า LINE Login
+                    liff.login();
                 } else {
-                    liff.getProfile().then(profile => {
-                        verifyLiffUser(profile);
-                    }).catch(err => {
-                        hideGlobalLoading();
-                        Swal.fire('Error', 'ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้', 'error');
+                    // รอให้ LIFF พร้อมสมบูรณ์จริงๆ ก่อนดึงโปรไฟล์
+                    liff.ready.then(() => {
+                        liff.getProfile().then(profile => {
+                            verifyLiffUser(profile);
+                        }).catch(err => {
+                            hideGlobalLoading();
+                            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้ กรุณาลองใหม่', 'error');
+                        });
                     });
                 }
             }).catch(err => {
                 hideGlobalLoading();
-                Swal.fire('ระบบขัดข้อง', 'ตั้งค่า LIFF ID ไม่ถูกต้อง หรือเบราว์เซอร์ไม่รองรับ', 'error');
+                console.error("LIFF Init Error:", err);
+                Swal.fire('ระบบขัดข้อง', 'ตั้งค่า LIFF ID ไม่ถูกต้อง หรือหมดอายุ (รหัสข้อผิดพลาด: ' + err.code + ')', 'error');
             });
         };
 
         // 🟢 ฟังก์ชันส่ง LINE ID ไปเช็คสิทธิ์ที่หลังบ้าน
-        // 🟢 ฟังก์ชันส่ง LINE ID ไปเช็คสิทธิ์ที่หลังบ้าน (เพิ่มระบบรออนุมัติ)
         function verifyLiffUser(profile) {
             fetch(GAS_URL, {
                 method: 'POST',
+                // 🟢 คลุม Header ป้องกัน CORS Error ในบางระบบเครือข่าย
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId })
             }).then(r => r.json()).then(res => {
                 if (res.status === 'success') {
-                    // 🎉 เคยลงทะเบียนและ "แอดมินอนุมัติแล้ว"
+                    // 🎉 อนุมัติแล้ว
                     userRealName = res.user.name;
                     document.getElementById('pos-ref').value = userRealName; 
                     
@@ -233,11 +238,11 @@
                             showGlobalLoading('กำลังลงทะเบียน...', 'บันทึกข้อมูลและสร้างสิทธิ์เข้าใช้งาน');
                             fetch(GAS_URL, {
                                 method: 'POST',
+                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                                 body: JSON.stringify({ action: 'registerLiffUser', userId: profile.userId, lineName: profile.displayName, realName: result.value })
                             }).then(r => r.json()).then(regRes => {
                                 hideGlobalLoading();
                                 if (regRes.status === 'pending_approval') {
-                                    // แจ้งเตือนว่าลงทะเบียนเสร็จ ให้รอแอดมิน
                                     Swal.fire({
                                         title: '<span class="text-xl font-black text-emerald-600">ลงทะเบียนสำเร็จ!</span>',
                                         html: '<p class="text-slate-600 font-prompt text-sm mt-2">ระบบบันทึกข้อมูลของคุณแล้ว<br><span class="text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-lg mt-2 inline-block">กรุณารอแอดมินอนุมัติสิทธิ์</span><br><br><span class="text-xs text-slate-400">ก่อนเข้าใช้งานระบบเบิกจ่ายครับ</span></p>',
@@ -264,7 +269,11 @@
 
         function fetchStockData() {
             showGlobalLoading('กำลังดึงข้อมูลวัสดุ...', 'ดึงข้อมูลคลังจากฐานข้อมูล');
-            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'fetchMaterialOnly' }) })
+            fetch(GAS_URL, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'fetchMaterialOnly' }) 
+            })
             .then(r => r.json())
             .then(result => {
                 hideGlobalLoading(); 
@@ -641,6 +650,7 @@
 
             fetch(GAS_URL, {
                 method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(requestBody)
             }).then(r => r.json()).then(res => {
                 hideGlobalLoading();
@@ -654,7 +664,6 @@
                     posCart = [];
                     document.getElementById('pos-remark').value = '';
                     toggleCartModal(false);
-                    // กลับไปโหลดข้อมูลใหม่ แต่ข้ามขั้นตอนเช็ค LINE เพื่อไม่ให้หน้าจอกระตุก
                     fetchStockData();
                 } else {
                     Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message || 'ไม่ทราบสาเหตุจากเซิร์ฟเวอร์', icon:'error', customClass:{popup:'!rounded-3xl'} });
