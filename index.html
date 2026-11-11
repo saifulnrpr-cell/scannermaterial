@@ -87,7 +87,6 @@
                         <input type="date" id="pos-date" class="w-full px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 outline-none" readonly>
                     </div>
                     <div>
-                        <!-- 🟢 ช่องชื่อผู้เบิก ถูกตั้งเป็น readonly เพราะดึงจากระบบ LINE อัตโนมัติ -->
                         <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">อ้างอิงผู้เบิก (ล็อกอัตโนมัติ)</label>
                         <input type="text" id="pos-ref" class="w-full px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-bold text-blue-800 outline-none shadow-inner" readonly>
                     </div>
@@ -149,29 +148,22 @@
 
         const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
-        // 🟢 เริ่มต้นระบบเมื่อเปิดหน้าเว็บ (บังคับ Login LINE ก่อน)
         window.onload = function() {
             let ts = new Date();
             document.getElementById('pos-date').value = ts.getFullYear() + "-" + String(ts.getMonth() + 1).padStart(2, '0') + "-" + String(ts.getDate()).padStart(2, '0');
             
             showGlobalLoading('กำลังเชื่อมต่อระบบ...', 'เพื่อยืนยันตัวตนการเข้าใช้งาน');
             
-            // 🟢 กำหนดค่า LIFF แบบปลอดภัย และป้องกัน Error ใน LINE In-App Browser
             liff.init({ liffId: LIFF_ID }).then(() => {
-                
-                // 1. เช็คว่าเปิดใน LINE In-App Browser หรือไม่
                 if (liff.isInClient()) {
-                    // ถ้าอยู่ในแอป LINE ให้ดึงโปรไฟล์เลย ไม่ต้องสั่ง login ซ้ำ
                     getLiffProfileAndVerify();
                 } else {
-                    // 2. ถ้าเปิดบนเบราว์เซอร์ปกติ (Chrome, Safari) ค่อยเช็คสถานะการล็อกอิน
                     if (!liff.isLoggedIn()) {
                         liff.login();
                     } else {
                         getLiffProfileAndVerify();
                     }
                 }
-                
             }).catch(err => {
                 hideGlobalLoading();
                 console.error("LIFF Init Error:", err);
@@ -179,7 +171,6 @@
             });
         };
 
-        // 🟢 ฟังก์ชันย่อยสำหรับดึง Profile และส่งไปตรวจสอบ
         function getLiffProfileAndVerify() {
             liff.ready.then(() => {
                 liff.getProfile().then(profile => {
@@ -191,16 +182,13 @@
             });
         }
 
-        // 🟢 ฟังก์ชันส่ง LINE ID ไปเช็คสิทธิ์ที่หลังบ้าน
         function verifyLiffUser(profile) {
             fetch(GAS_URL, {
                 method: 'POST',
-                // 🟢 คลุม Header ป้องกัน CORS Error ในบางระบบเครือข่าย
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId })
             }).then(r => r.json()).then(res => {
                 if (res.status === 'success') {
-                    // 🎉 อนุมัติแล้ว
                     userRealName = res.user.name;
                     document.getElementById('pos-ref').value = userRealName; 
                     
@@ -211,7 +199,6 @@
                     fetchStockData();
 
                 } else if (res.status === 'pending_approval') {
-                    // 🛑 ลงทะเบียนแล้ว แต่ยัง "รออนุมัติ"
                     hideGlobalLoading();
                     Swal.fire({
                         title: '<span class="text-xl font-black text-amber-500">รอการอนุมัติ</span>',
@@ -223,7 +210,6 @@
                     });
 
                 } else if (res.status === 'not_found') {
-                    // 🛑 สแกนครั้งแรก ยังไม่เคยลงทะเบียน
                     hideGlobalLoading();
                     Swal.fire({
                         title: 'ลงทะเบียนใช้งานครั้งแรก',
@@ -249,8 +235,9 @@
                     }).then(result => {
                         if (result.isConfirmed) {
                             showGlobalLoading('กำลังลงทะเบียน...', 'บันทึกข้อมูลและสร้างสิทธิ์เข้าใช้งาน');
+                            
+                            // 🟢 แก้ไขจุดที่ผิดพลาดตรงนี้ให้สมบูรณ์
                             fetch(GAS_URL, {
-                               fetch(GAS_URL, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                                 body: JSON.stringify({ action: 'registerLiffUser', userId: profile.userId, lineName: profile.displayName, realName: result.value })
@@ -258,7 +245,6 @@
                                 hideGlobalLoading();
                                 if (regRes.status === 'pending_approval') {
                                     
-                                    // 🟢 เพิ่มเสียงพูดตอนลงทะเบียนสำเร็จ
                                     if ('speechSynthesis' in window) {
                                         let speech = new SpeechSynthesisUtterance("ลงทะเบียนสำเร็จ รอแอดมินอนุมัติคำขอ สักครู่นะคะ");
                                         speech.lang = 'th-TH';
@@ -278,7 +264,16 @@
                                 } else {
                                     Swal.fire('เกิดข้อผิดพลาด', regRes.message, 'error');
                                 }
+                            }).catch(err => {
+                                hideGlobalLoading();
+                                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
                             });
+                        }
+                    });
+                } else {
+                    hideGlobalLoading();
+                    Swal.fire({title:'ไม่อนุญาต', text: res.message, icon:'error', allowOutsideClick:false, showConfirmButton:false, customClass:{popup:'!rounded-[2rem]'}});
+                }
             }).catch(e => {
                 hideGlobalLoading();
                 Swal.fire({title:'ข้อผิดพลาด', text:'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสิทธิ์ได้', icon:'error', customClass:{popup:'!rounded-[2rem]'}});
@@ -311,9 +306,6 @@
             });
         }
 
-        // ==========================================
-        // 🟢 ส่วนที่เหลือของระบบ UI เหมือนเดิม
-        // ==========================================
         window.toggleCartModal = function(show) {
             const modal = document.getElementById('cart-modal');
             if (show) {
@@ -467,13 +459,12 @@
         function openScanner() {
             document.getElementById('scanner-overlay').classList.remove('hidden');
             
-            // 🟢 ปรับแก้การตั้งค่ากล้องที่นี่
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                fps: 10, // ลด FPS ลงเหลือ 10 ช่วยลดอาการกล้องวืดและประหยัดแบตเตอรี่
-                qrbox: { width: 300, height: 120 }, // เปลี่ยนกรอบเป็นผืนผ้าแนวยาวให้พอดีกับบาร์โค้ด
+                fps: 10, 
+                qrbox: { width: 300, height: 120 }, 
                 aspectRatio: 1.0, 
                 showTorchButtonIfSupported: true,
-                disableFlip: false // ป้องกันกล้องสลับซ้ายขวาเอง
+                disableFlip: false 
             }, false);
             
             html5QrcodeScanner.render(onScanSuccess);
@@ -681,19 +672,16 @@
                 hideGlobalLoading();
                 if (res.status === 'success') {
                     
-                    // 🟢 1. สั่งให้ระบบพูดเสียงภาษาไทย
                     if ('speechSynthesis' in window) {
                         let speech = new SpeechSynthesisUtterance("บันทึกรายการเบิกวัสดุสำเร็จค่ะ");
-                        speech.lang = 'th-TH'; // ตั้งค่าเป็นเสียงภาษาไทย
-                        speech.rate = 1.0;     // ความเร็วในการพูด (1.0 คือปกติ)
-                        speech.pitch = 1.0;    // ระดับเสียงสูง-ต่ำ
+                        speech.lang = 'th-TH'; 
+                        speech.rate = 1.0;     
+                        speech.pitch = 1.0;    
                         window.speechSynthesis.speak(speech);
                     } else {
-                        // ถ้าเบราว์เซอร์ไหนไม่รองรับเสียงพูด ให้เล่นเสียง Beep แทน
                         beepSound.play().catch(e=>{});
                     }
 
-                    // 🟢 2. โชว์หน้าต่าง 10 วินาที พร้อมแอนิเมชันโหลดและ Progress Bar (โค้ดเดิมของคุณ)
                     let countdown = 10;
                     let timerInterval;
 
@@ -729,7 +717,6 @@
                             clearInterval(timerInterval);
                         }
                     }).then(() => {
-                        // 🟢 เมื่อนับถอยหลังครบให้สั่งปิดหน้าต่าง
                         if (liff.isInClient()) {
                             liff.closeWindow();
                         } else {
