@@ -462,9 +462,16 @@
 
         function openScanner() {
             document.getElementById('scanner-overlay').classList.remove('hidden');
+            
+            // 🟢 ปรับแก้การตั้งค่ากล้องที่นี่
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                fps: 20, qrbox: {width: 250, height: 250}, aspectRatio: 1.0, showTorchButtonIfSupported: true
+                fps: 10, // ลด FPS ลงเหลือ 10 ช่วยลดอาการกล้องวืดและประหยัดแบตเตอรี่
+                qrbox: { width: 300, height: 120 }, // เปลี่ยนกรอบเป็นผืนผ้าแนวยาวให้พอดีกับบาร์โค้ด
+                aspectRatio: 1.0, 
+                showTorchButtonIfSupported: true,
+                disableFlip: false // ป้องกันกล้องสลับซ้ายขวาเอง
             }, false);
+            
             html5QrcodeScanner.render(onScanSuccess);
         }
 
