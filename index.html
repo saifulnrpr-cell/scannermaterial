@@ -675,28 +675,69 @@
             }).then(r => r.json()).then(res => {
                 hideGlobalLoading();
                 if (res.status === 'success') {
-                    // 🟢 โชว์ว่าสำเร็จทันที
+                    // 🟢 โชว์หน้าต่าง 10 วินาที พร้อมแอนิเมชันโหลดและ Progress Bar
+                    let countdown = 10;
+                    let timerInterval;
+
                     Swal.fire({ 
-                        html: '<div class="mt-4"><div class="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4"><svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><h2 class="text-2xl font-black text-slate-800 mb-2">บันทึกสำเร็จ!</h2><p class="text-slate-500 text-sm font-medium">ทำรายการเบิกวัสดุเรียบร้อยแล้ว</p></div>',
-                        showConfirmButton: false, timer: 1500, // ลดเวลาโชว์ลงเหลือ 1.5 วิ
-                        customClass:{popup:'!rounded-[2rem]'} 
+                        html: `
+                            <div class="mt-4 font-prompt">
+                                <div class="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5 relative shadow-inner">
+                                    <!-- ไอคอนติ๊กถูกตรงกลาง -->
+                                    <svg class="w-10 h-10 text-emerald-500 absolute z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                    <!-- วงกลมหมุนรอบๆ (Loading) -->
+                                    <div class="absolute inset-0 border-[5px] border-emerald-100 border-t-emerald-500 rounded-full animate-spin"></div>
+                                </div>
+                                <h2 class="text-2xl font-black text-slate-800 mb-2">บันทึกสำเร็จ!</h2>
+                                <p class="text-slate-500 text-sm font-medium mb-5">ระบบกำลังปิดหน้าต่างอัตโนมัติใน <b id="close-countdown" class="text-rose-500 text-lg tabular-nums">10</b> วินาที</p>
+                                
+                                <!-- แถบ Progress Bar ถอยหลัง -->
+                                <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden shadow-inner">
+                                    <div id="close-progress" class="bg-gradient-to-r from-emerald-400 to-emerald-500 h-2 rounded-full" style="width: 100%; transition: width 1s linear;"></div>
+                                </div>
+                            </div>
+                        `,
+                        showConfirmButton: false, 
+                        allowOutsideClick: false, // ป้องกันผู้ใช้เผลอกดปิดหน้าต่างก่อนกำหนด
+                        timer: 10000, // ตั้งเวลา 10 วินาที (10000 ms)
+                        customClass: { popup: '!rounded-[2.5rem] p-6 shadow-2xl' },
+                        didOpen: () => {
+                            const countEl = document.getElementById('close-countdown');
+                            const progEl = document.getElementById('close-progress');
+                            timerInterval = setInterval(() => {
+                                countdown--;
+                                if (countEl) countEl.innerText = countdown;
+                                if (progEl) progEl.style.width = (countdown * 10) + '%';
+                            }, 1000);
+                        },
+                        willClose: () => {
+                            clearInterval(timerInterval);
+                        }
+                    }).then(() => {
+                        // 🟢 เมื่อนับถอยหลังครบ 10 วินาที ให้สั่งปิดหน้าต่าง
+                        if (liff.isInClient()) {
+                            // กรณีใช้งานผ่านแอป LINE (LIFF) ให้ปิดหน้าต่างอัตโนมัติ
+                            liff.closeWindow();
+                        } else {
+                            // กรณีใช้งานผ่านเว็บเบราว์เซอร์ปกติ
+                            window.close();
+                            // กรณีเบราว์เซอร์บล็อกการทำงานของ window.close() ให้แสดงหน้าจอเปล่าๆ แทน
+                            document.body.innerHTML = `
+                                <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background-color: #f8fafc; font-family: 'Prompt', sans-serif;">
+                                    <div style="width:80px; height:80px; background:#d1fae5; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:20px; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06);">
+                                        <svg style="width:40px; height:40px; color:#10b981;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                    </div>
+                                    <h2 style="font-size:24px; color:#1e293b; font-weight:900; margin-bottom:10px;">ทำรายการเสร็จสิ้น</h2>
+                                    <p style="color:#64748b; font-weight:500;">คุณสามารถกด (X) ปิดหน้าต่างนี้ได้เลยครับ</p>
+                                </div>
+                            `;
+                        }
                     });
                     
+                    // 🟢 เคลียร์ตะกร้าและซ่อนโมดอลระหว่างรอ 10 วินาที
                     posCart = [];
                     document.getElementById('pos-remark').value = '';
                     toggleCartModal(false);
-                    
-                    // 🟢 ปล่อยให้มันโหลดสต๊อกใหม่ในพื้นหลังโดยไม่ต้องขึ้นหน้าต่าง Loading ทับผู้ใช้งาน
-                    fetch(GAS_URL, { 
-                        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'fetchMaterialOnly' }) 
-                    }).then(r => r.json()).then(result => {
-                        if(result.status === 'success') {
-                            matStockData = result.matStockData || [];
-                            matStockData.forEach((row, idx) => { row.originalIndex = idx + 1; });
-                            renderPOSProducts();
-                        }
-                    });
 
                 } else {
                     Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message || 'ไม่ทราบสาเหตุจากเซิร์ฟเวอร์', icon:'error', customClass:{popup:'!rounded-3xl'} });
