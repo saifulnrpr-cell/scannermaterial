@@ -250,12 +250,23 @@
                         if (result.isConfirmed) {
                             showGlobalLoading('กำลังลงทะเบียน...', 'บันทึกข้อมูลและสร้างสิทธิ์เข้าใช้งาน');
                             fetch(GAS_URL, {
+                               fetch(GAS_URL, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                                 body: JSON.stringify({ action: 'registerLiffUser', userId: profile.userId, lineName: profile.displayName, realName: result.value })
                             }).then(r => r.json()).then(regRes => {
                                 hideGlobalLoading();
                                 if (regRes.status === 'pending_approval') {
+                                    
+                                    // 🟢 เพิ่มเสียงพูดตอนลงทะเบียนสำเร็จ
+                                    if ('speechSynthesis' in window) {
+                                        let speech = new SpeechSynthesisUtterance("ลงทะเบียนสำเร็จ รอแอดมินอนุมัติคำขอ สักครู่นะคะ");
+                                        speech.lang = 'th-TH';
+                                        speech.rate = 1.0;
+                                        speech.pitch = 1.0;
+                                        window.speechSynthesis.speak(speech);
+                                    }
+
                                     Swal.fire({
                                         title: '<span class="text-xl font-black text-emerald-600">ลงทะเบียนสำเร็จ!</span>',
                                         html: '<p class="text-slate-600 font-prompt text-sm mt-2">ระบบบันทึกข้อมูลของคุณแล้ว<br><span class="text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-lg mt-2 inline-block">กรุณารอแอดมินอนุมัติสิทธิ์</span><br><br><span class="text-xs text-slate-400">ก่อนเข้าใช้งานระบบเบิกจ่ายครับ</span></p>',
@@ -268,12 +279,6 @@
                                     Swal.fire('เกิดข้อผิดพลาด', regRes.message, 'error');
                                 }
                             });
-                        }
-                    });
-                } else {
-                    hideGlobalLoading();
-                    Swal.fire({title:'ไม่อนุญาต', text: res.message, icon:'error', allowOutsideClick:false, showConfirmButton:false, customClass:{popup:'!rounded-[2rem]'}});
-                }
             }).catch(e => {
                 hideGlobalLoading();
                 Swal.fire({title:'ข้อผิดพลาด', text:'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสิทธิ์ได้', icon:'error', customClass:{popup:'!rounded-[2rem]'}});
