@@ -1005,7 +1005,7 @@
         }
 
         // ==========================================
-        // 🟢 ระบบสแกนและบันทึกอัปเดตบาร์โค้ด
+        // 🟢 ระบบสแกนและบันทึกอัปเดตบาร์โค้ด และ รูปภาพ
         // ==========================================
         window.openBarcodeEditor = function(index) {
             let item = matStockData.find(r => r.originalIndex === index);
@@ -1013,17 +1013,31 @@
 
             let currentBarcode = item[1] !== '-' ? item[1] : '';
 
+            // ดึงรูปภาพเดิมมาแสดง (ถ้ามี)
+            let imgs = []; try { imgs = JSON.parse(item[11] || '[]'); } catch(e){}
+            let currentImgHtml = '';
+            if (imgs.length > 0) {
+                let imgUrl = 'https://drive.google.com/thumbnail?id=' + imgs[0] + '&sz=w200';
+                currentImgHtml = `<div class="w-full flex justify-center mb-3"><img src="${imgUrl}" class="h-24 w-24 object-cover rounded-2xl border-4 border-white shadow-sm"></div>`;
+            } else {
+                currentImgHtml = `<div class="w-full flex justify-center mb-3"><div class="h-24 w-24 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 border-2 border-dashed border-slate-200"><svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div></div>`;
+            }
+
             Swal.fire({
-                title: '<span class="text-xl font-black text-slate-800">จัดการบาร์โค้ด</span>',
+                title: '<span class="text-xl font-black text-slate-800">จัดการข้อมูลวัสดุ</span>',
                 html: `
                     <div class="mt-4 font-prompt text-left">
-                        <div class="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4">
+                        ${currentImgHtml}
+                        <div class="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 text-center">
                             <p class="text-[13px] font-bold text-blue-800 line-clamp-2">${item[2]}</p>
                             <p class="text-[10px] text-blue-500 font-medium mt-1 uppercase tracking-widest">รหัสระบบ: ${item[0]}</p>
                         </div>
                         
-                        <label class="text-xs font-bold text-slate-500 ml-1">เลขบาร์โค้ด (พิมพ์แก้หรือสแกน)</label>
-                        <div class="relative mt-1 mb-6">
+                        <label class="text-[11px] font-bold text-slate-500 ml-1 block mb-1">อัปเดตรูปภาพ (ถ้าไม่เปลี่ยนปล่อยว่างได้)</label>
+                        <input type="file" id="admin-image-input" accept="image/*" class="w-full mb-4 text-[10px] text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 bg-slate-50 border border-slate-200 rounded-xl outline-none cursor-pointer">
+
+                        <label class="text-[11px] font-bold text-slate-500 ml-1 block">เลขบาร์โค้ด (พิมพ์แก้หรือสแกน)</label>
+                        <div class="relative mt-1 mb-2">
                             <input type="text" id="admin-barcode-input" value="${currentBarcode}" placeholder="ระบุบาร์โค้ด..." class="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 focus:border-blue-400 focus:bg-white outline-none shadow-inner tracking-wider">
                             <button type="button" onclick="startAdminScanner(${index})" class="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors shadow-sm focus:outline-none">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
@@ -1032,20 +1046,46 @@
                     </div>
                 `,
                 showCancelButton: true,
-                confirmButtonText: 'บันทึกบาร์โค้ด',
+                confirmButtonText: 'บันทึกข้อมูล',
                 cancelButtonText: 'ยกเลิก',
                 buttonsStyling: false,
                 customClass: {
                     popup: '!rounded-[2rem] p-6 max-w-sm',
-                    confirmButton: 'w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all mt-2',
+                    confirmButton: 'w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all mt-4',
                     cancelButton: 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3.5 rounded-xl transition-all mt-2'
                 },
                 preConfirm: () => {
-                    return document.getElementById('admin-barcode-input').value.trim();
+                    return new Promise((resolve) => {
+                        let barcode = document.getElementById('admin-barcode-input').value.trim();
+                        let imgInput = document.getElementById('admin-image-input');
+                        
+                        let resultPayload = { barcode: barcode, image: null };
+
+                        if (imgInput.files && imgInput.files.length > 0) {
+                            let file = imgInput.files[0];
+                            if (file.size > 2 * 1024 * 1024) {
+                                Swal.showValidationMessage('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 2MB');
+                                resolve(false);
+                                return;
+                            }
+                            let reader = new FileReader();
+                            reader.onload = function(e) {
+                                resultPayload.image = {
+                                    base64: e.target.result.split(',')[1],
+                                    mimeType: file.type,
+                                    filename: file.name
+                                };
+                                resolve(resultPayload);
+                            };
+                            reader.readAsDataURL(file);
+                        } else {
+                            resolve(resultPayload); // ไม่มีรูปส่งไปเฉพาะบาร์โค้ด
+                        }
+                    });
                 }
             }).then(res => {
-                if (res.isConfirmed) {
-                    saveAdminBarcode(index, res.value);
+                if (res.isConfirmed && res.value) {
+                    saveAdminData(index, res.value);
                 }
             });
         };
@@ -1056,6 +1096,57 @@
             editTargetItem = index;
             openScanner();
         };
+
+        // 🟢 เปลียนชื่อจาก saveAdminBarcode เป็น saveAdminData เพื่อให้ครอบคลุมการเซฟรูปภาพ
+        window.saveAdminData = function(index, editData) {
+            let item = matStockData.find(r => r.originalIndex === index);
+            if (!item) return;
+            
+            showGlobalLoading('กำลังอัปเดตข้อมูล...', 'บันทึกบาร์โค้ดและรูปภาพไปยังฐานข้อมูล', 'edit');
+            
+            let payload = {
+                code: item[0],
+                barcode: editData.barcode || '-',
+                name: item[2],
+                desc: item[3],
+                category: item[4],
+                location: item[9],
+                min: parseFloat(item[8]) || 0,
+                oldImages: item[11] || '[]'
+            };
+
+            // 🟢 หากมีรูปภาพใหม่แนบมา ให้ใส่ใน payload ด้วย
+            if (editData.image) {
+                payload.image = editData.image;
+            }
+
+            let requestBody = { 
+                action: 'updateMaterialInfo', 
+                data: JSON.stringify(payload),
+                adminToken: '1941000169481' 
+            };
+
+            fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(requestBody)
+            }).then(r => r.json()).then(res => {
+                hideGlobalLoading();
+                if(res.status === 'success') {
+                    Swal.fire({title: 'อัปเดตข้อมูลสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false});
+                    fetchStockData(); // โหลดใหม่เพื่อให้ข้อมูลรูปและจุดเปลี่ยนสี
+                } else {
+                    Swal.fire('ข้อผิดพลาดจากเซิร์ฟเวอร์', res.message, 'error');
+                }
+            }).catch(e => {
+                hideGlobalLoading();
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            });
+        };
+        
+        
+
+        
 
         window.saveAdminBarcode = function(index, newBarcode) {
             let item = matStockData.find(r => r.originalIndex === index);
