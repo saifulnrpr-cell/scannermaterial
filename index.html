@@ -273,8 +273,11 @@
 
                 if (res.status === 'success') {
                     userRealName = res.user.name;
-                    userAccessRight = res.user.access || ''; // 🟢 เก็บสิทธิ์ผู้ใช้งานจากระบบ
-                    document.getElementById('pos-ref').value = userRealName;
+                    
+                    // 🟢 เพิ่มบรรทัดนี้ เพื่อดึงสิทธิ์จาก Google Sheet มาเก็บไว้ในระบบมือถือ
+                    userAccessRight = res.user.access || ''; 
+                    
+                    document.getElementById('pos-ref').value = userRealName; 
                     
                     // ป้องกันกรณีผู้ใช้ไม่มีรูปโปรไฟล์ใน LINE
                     let picUrl = profile.pictureUrl || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(profile.displayName) + '&background=dbeafe&color=1e40af&size=128&rounded=true&bold=true');
