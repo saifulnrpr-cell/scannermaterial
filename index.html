@@ -148,61 +148,80 @@
 
         const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
-        window.onload = function() {
+        // 🟢 เปลี่ยนจาก window.onload มาใช้ Event Listener เพื่อความเสถียร
+        document.addEventListener("DOMContentLoaded", async function() {
             let ts = new Date();
             document.getElementById('pos-date').value = ts.getFullYear() + "-" + String(ts.getMonth() + 1).padStart(2, '0') + "-" + String(ts.getDate()).padStart(2, '0');
             
             showGlobalLoading('กำลังเชื่อมต่อระบบ...', 'เพื่อยืนยันตัวตนการเข้าใช้งาน');
             
-            liff.init({ liffId: LIFF_ID }).then(() => {
-                if (liff.isInClient()) {
-                    getLiffProfileAndVerify();
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                
+                // ตรวจสอบการล็อกอินทันทีหลัง init เสร็จ
+                if (liff.isLoggedIn()) {
+                    await processLiffLogin();
                 } else {
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
+                    // หากยังไม่ล็อกอิน ให้เช็คว่าเป็น LINE In-App Browser หรือไม่
+                    if (liff.isInClient()) {
+                        hideGlobalLoading();
+                        Swal.fire('ข้อผิดพลาดจาก LINE', 'ไม่สามารถอ่านข้อมูลโปรไฟล์ได้ กรุณาปิดแล้วเปิดใหม่', 'error');
                     } else {
-                        getLiffProfileAndVerify();
+                        liff.login();
                     }
                 }
-            }).catch(err => {
+            } catch (err) {
                 hideGlobalLoading();
                 console.error("LIFF Init Error:", err);
-                Swal.fire('ระบบขัดข้อง', 'ไม่สามารถเริ่มต้นระบบ LIFF ได้ (รหัส: ' + err.code + ')', 'error');
-            });
-        };
+                Swal.fire('ระบบขัดข้อง', 'การเชื่อมต่อ LIFF ล้มเหลว โปรดลองรีเฟรชหน้าจออีกครั้ง', 'error');
+            }
+        });
 
-        function getLiffProfileAndVerify() {
-            liff.ready.then(() => {
-                liff.getProfile().then(profile => {
-                    verifyLiffUser(profile);
-                }).catch(err => {
-                    hideGlobalLoading();
-                    Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลโปรไฟล์ LINE ได้ กรุณาลองใหม่', 'error');
+        // 🟢 แยกระบบประมวลผลหลังล็อกอินออกมา เพื่อความรวดเร็วและใช้ async/await
+        async function processLiffLogin() {
+            try {
+                const profile = await liff.getProfile();
+                await verifyLiffUser(profile);
+            } catch (err) {
+                hideGlobalLoading();
+                console.error("Profile Error:", err);
+                Swal.fire({
+                    title: 'เชื่อมต่อขัดข้อง',
+                    text: 'ไม่สามารถดึงข้อมูลโปรไฟล์จากบัญชี LINE ของคุณได้ โปรดลองอีกครั้ง',
+                    icon: 'warning',
+                    confirmButtonColor: '#3b82f6'
+                }).then(() => {
+                    location.reload(); // บังคับรีเฟรชหากดึงโปรไฟล์ไม่มา
                 });
-            });
+            }
         }
 
-        function verifyLiffUser(profile) {
-            fetch(GAS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId })
-            }).then(r => r.json()).then(res => {
+        // 🟢 ฟังก์ชันตรวจสอบและดึงสิทธิ์ (ใช้ async/await ให้รอเซิร์ฟเวอร์ตอบกลับ)
+        async function verifyLiffUser(profile) {
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId })
+                });
+                
+                const res = await response.json();
+
                 if (res.status === 'success') {
                     userRealName = res.user.name;
                     document.getElementById('pos-ref').value = userRealName; 
                     
                     let statusEl = document.getElementById('status-indicator');
-                    statusEl.className = 'text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100';
-                    statusEl.innerHTML = `<img src="${profile.pictureUrl}" class="w-4 h-4 rounded-full"> ${userRealName}`;
+                    statusEl.className = 'text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 shadow-sm transition-all';
+                    statusEl.innerHTML = `<img src="${profile.pictureUrl}" class="w-4 h-4 rounded-full border border-emerald-200"> ${userRealName}`;
                     
-                    fetchStockData();
+                    fetchStockData(); // ดึงสต๊อกเมื่อยืนยันสิทธิ์ผ่านเท่านั้น
 
                 } else if (res.status === 'pending_approval') {
                     hideGlobalLoading();
                     Swal.fire({
                         title: '<span class="text-xl font-black text-amber-500">รอการอนุมัติ</span>',
-                        html: '<p class="text-slate-600 font-prompt text-sm mt-2">บัญชีของคุณลงทะเบียนเรียบร้อยแล้ว<br>แต่ยังไม่ได้รับการเปิดสิทธิ์จากผู้ดูแลระบบ<br><br><span class="text-xs text-rose-500 font-bold bg-rose-50 px-3 py-1.5 rounded-lg">*โปรดแจ้งแอดมินให้เปลี่ยนสถานะเป็น "ปกติ"</span></p>',
+                        html: '<p class="text-slate-600 font-prompt text-sm mt-2">บัญชีของคุณลงทะเบียนเรียบร้อยแล้ว<br>แต่ยังไม่ได้รับการเปิดสิทธิ์จากผู้ดูแลระบบ<br><br><span class="text-xs text-rose-500 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 shadow-sm">*โปรดแจ้งแอดมินให้เปลี่ยนสถานะเป็น "ปกติ"</span></p>',
                         icon: 'info',
                         allowOutsideClick: false,
                         showConfirmButton: false,
@@ -211,74 +230,82 @@
 
                 } else if (res.status === 'not_found') {
                     hideGlobalLoading();
-                    Swal.fire({
-                        title: 'ลงทะเบียนใช้งานครั้งแรก',
-                        html: `
-                            <div class="text-center font-prompt mt-2">
-                                <img src="${profile.pictureUrl}" class="w-20 h-20 rounded-full mx-auto mb-3 shadow-md border-2 border-white">
-                                <p class="text-[10px] font-bold text-slate-400 mb-4 uppercase tracking-widest">LINE: ${profile.displayName}</p>
-                                <p class="text-sm font-bold text-slate-700 mb-2 text-left">ระบุชื่อ-นามสกุลจริงของคุณ เพื่อใช้เป็น "อ้างอิงผู้เบิก" ในระบบ:</p>
-                                <input type="text" id="reg-realname" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-prompt text-sm focus:border-blue-400 focus:bg-white outline-none transition-colors shadow-inner" placeholder="ระบุ ชื่อ-นามสกุล...">
-                            </div>`,
-                        confirmButtonText: 'บันทึกข้อมูล',
-                        allowOutsideClick: false,
-                        buttonsStyling: false,
-                        customClass: {
-                            popup: '!rounded-[2rem] p-6 shadow-2xl',
-                            confirmButton: 'w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-xl shadow-md transition-all mt-4'
-                        },
-                        preConfirm: () => {
-                            const name = document.getElementById('reg-realname').value.trim();
-                            if (!name) { Swal.showValidationMessage('กรุณาระบุชื่อ-นามสกุลให้ครบถ้วน'); return false; }
-                            return name;
-                        }
-                    }).then(result => {
-                        if (result.isConfirmed) {
-                            showGlobalLoading('กำลังลงทะเบียน...', 'บันทึกข้อมูลและสร้างสิทธิ์เข้าใช้งาน');
-                            
-                            // 🟢 แก้ไขจุดที่ผิดพลาดตรงนี้ให้สมบูรณ์
-                            fetch(GAS_URL, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                                body: JSON.stringify({ action: 'registerLiffUser', userId: profile.userId, lineName: profile.displayName, realName: result.value })
-                            }).then(r => r.json()).then(regRes => {
-                                hideGlobalLoading();
-                                if (regRes.status === 'pending_approval') {
-                                    
-                                    if ('speechSynthesis' in window) {
-                                        let speech = new SpeechSynthesisUtterance("ลงทะเบียนสำเร็จ รอแอดมินอนุมัติคำขอ สักครู่นะคะ");
-                                        speech.lang = 'th-TH';
-                                        speech.rate = 1.0;
-                                        speech.pitch = 1.0;
-                                        window.speechSynthesis.speak(speech);
-                                    }
-
-                                    Swal.fire({
-                                        title: '<span class="text-xl font-black text-emerald-600">ลงทะเบียนสำเร็จ!</span>',
-                                        html: '<p class="text-slate-600 font-prompt text-sm mt-2">ระบบบันทึกข้อมูลของคุณแล้ว<br><span class="text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-lg mt-2 inline-block">กรุณารอแอดมินอนุมัติสิทธิ์</span><br><br><span class="text-xs text-slate-400">ก่อนเข้าใช้งานระบบเบิกจ่ายครับ</span></p>',
-                                        icon: 'success',
-                                        allowOutsideClick: false,
-                                        showConfirmButton: false,
-                                        customClass: { popup: '!rounded-[2rem] shadow-2xl' }
-                                    });
-                                } else {
-                                    Swal.fire('เกิดข้อผิดพลาด', regRes.message, 'error');
-                                }
-                            }).catch(err => {
-                                hideGlobalLoading();
-                                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
-                            });
-                        }
-                    });
+                    promptUserRegistration(profile);
                 } else {
                     hideGlobalLoading();
                     Swal.fire({title:'ไม่อนุญาต', text: res.message, icon:'error', allowOutsideClick:false, showConfirmButton:false, customClass:{popup:'!rounded-[2rem]'}});
                 }
-            }).catch(e => {
+            } catch (e) {
                 hideGlobalLoading();
+                console.error("Verify Error:", e);
                 Swal.fire({title:'ข้อผิดพลาด', text:'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสิทธิ์ได้', icon:'error', customClass:{popup:'!rounded-[2rem]'}});
+            }
+        }
+
+        // 🟢 ฟังก์ชันสำหรับการลงทะเบียน (แยกออกมาให้ทำงานชัดเจนขึ้น)
+        function promptUserRegistration(profile) {
+            Swal.fire({
+                title: 'ลงทะเบียนใช้งานครั้งแรก',
+                html: `
+                    <div class="text-center font-prompt mt-2">
+                        <img src="${profile.pictureUrl}" class="w-20 h-20 rounded-full mx-auto mb-3 shadow-md border-2 border-white">
+                        <p class="text-[10px] font-bold text-slate-400 mb-4 uppercase tracking-widest">LINE: ${profile.displayName}</p>
+                        <p class="text-sm font-bold text-slate-700 mb-2 text-left">ระบุชื่อ-นามสกุลจริงของคุณ เพื่อใช้เป็น "อ้างอิงผู้เบิก" ในระบบ:</p>
+                        <input type="text" id="reg-realname" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-prompt text-sm focus:border-blue-400 focus:bg-white outline-none transition-colors shadow-inner" placeholder="ระบุ ชื่อ-นามสกุล...">
+                    </div>`,
+                confirmButtonText: 'บันทึกข้อมูล',
+                allowOutsideClick: false,
+                buttonsStyling: false,
+                customClass: {
+                    popup: '!rounded-[2rem] p-6 shadow-2xl',
+                    confirmButton: 'w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-xl shadow-md transition-all mt-4'
+                },
+                preConfirm: () => {
+                    const name = document.getElementById('reg-realname').value.trim();
+                    if (!name) { Swal.showValidationMessage('กรุณาระบุชื่อ-นามสกุลให้ครบถ้วน'); return false; }
+                    return name;
+                }
+            }).then(result => {
+                if (result.isConfirmed) {
+                    showGlobalLoading('กำลังลงทะเบียน...', 'บันทึกข้อมูลและสร้างสิทธิ์เข้าใช้งาน');
+                    
+                    fetch(GAS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'registerLiffUser', userId: profile.userId, lineName: profile.displayName, realName: result.value })
+                    }).then(r => r.json()).then(regRes => {
+                        hideGlobalLoading();
+                        if (regRes.status === 'pending_approval') {
+                            
+                            if ('speechSynthesis' in window) {
+                                let speech = new SpeechSynthesisUtterance("ลงทะเบียนสำเร็จ รอแอดมินอนุมัติคำขอ สักครู่นะคะ");
+                                speech.lang = 'th-TH';
+                                speech.rate = 1.0;
+                                speech.pitch = 1.0;
+                                window.speechSynthesis.speak(speech);
+                            }
+
+                            Swal.fire({
+                                title: '<span class="text-xl font-black text-emerald-600">ลงทะเบียนสำเร็จ!</span>',
+                                html: '<p class="text-slate-600 font-prompt text-sm mt-2">ระบบบันทึกข้อมูลของคุณแล้ว<br><span class="text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-lg mt-2 inline-block shadow-sm">กรุณารอแอดมินอนุมัติสิทธิ์</span><br><br><span class="text-xs text-slate-400">ก่อนเข้าใช้งานระบบเบิกจ่ายครับ</span></p>',
+                                icon: 'success',
+                                allowOutsideClick: false,
+                                showConfirmButton: false,
+                                customClass: { popup: '!rounded-[2rem] shadow-2xl' }
+                            });
+                        } else {
+                            Swal.fire('เกิดข้อผิดพลาด', regRes.message, 'error');
+                        }
+                    }).catch(err => {
+                        hideGlobalLoading();
+                        Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+                    });
+                }
             });
         }
+
+        function fetchStockData() {
+            // (ฟังก์ชันดึงสต๊อกและโค้ดด้านล่างหลังจากนี้ ปล่อยให้เหมือนเดิมทุกอย่างครับ)
 
         function fetchStockData() {
             showGlobalLoading('กำลังดึงข้อมูลวัสดุ...', 'ดึงข้อมูลคลังจากฐานข้อมูล');
