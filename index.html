@@ -916,7 +916,7 @@
         window.toggleAdminMode = function() {
             Swal.close();
             if (isAdminMode) {
-                // ปิดโหมด
+                // ปิดโหมดแอดมิน
                 isAdminMode = false;
                 scannerMode = 'dispense';
                 document.getElementById('main-header').classList.replace('bg-slate-900', 'bg-white/90');
@@ -926,24 +926,21 @@
                 Swal.fire({ title: 'เข้าสู่โหมดเบิกจ่าย', icon: 'success', timer: 1000, showConfirmButton: false });
                 renderPOSProducts();
             } else {
-                // เปิดโหมด ต้องเช็คสิทธิ์
+                // 🟢 เปิดโหมดแอดมิน (ตรวจสอบสิทธิ์จากชีทโดยตรง)
                 if (userAccessRight.includes('all') || userAccessRight.includes('view-material')) {
+                    // หากมีสิทธิ์ ให้เข้าสู่ระบบแอดมินทันที
                     activateAdminMode();
                 } else {
-                    // Fallback เผื่อสิทธิ์ดึงมาไม่สมบูรณ์
+                    // 🟢 หากไม่มีสิทธิ์ ให้แสดงหน้าต่างแจ้งเตือนและปฏิเสธการเข้าถึง
                     Swal.fire({
-                        title: 'กรุณายืนยันสิทธิ์แอดมิน',
-                        input: 'password',
-                        inputPlaceholder: 'รหัสผ่าน 6 หลัก...',
-                        showCancelButton: true,
-                        confirmButtonText: 'ยืนยัน',
-                        cancelButtonText: 'ยกเลิก',
-                        customClass: { popup: '!rounded-3xl font-prompt' }
-                    }).then(res => {
-                        if (res.isConfirmed && res.value === '123456') { // 🟢 รหัสผ่านแอดมินสำรอง
-                            activateAdminMode();
-                        } else if (res.isConfirmed) {
-                            Swal.fire('รหัสผ่านไม่ถูกต้อง', '', 'error');
+                        title: '<span class="text-xl font-black text-rose-600">ไม่มีสิทธิ์เข้าถึง</span>',
+                        html: '<p class="text-slate-600 font-prompt mt-2">ฟังก์ชันจัดการบาร์โค้ด <b class="text-rose-500">สงวนไว้สำหรับเจ้าหน้าที่ที่รับผิดชอบเท่านั้น</b> หากต้องการสิทธิ์เพิ่มเติมโปรดติดต่อผู้ดูแลระบบครับ</p>',
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง',
+                        confirmButtonColor: '#e11d48',
+                        customClass: { 
+                            popup: '!rounded-[2rem] font-prompt shadow-2xl p-6',
+                            confirmButton: 'w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl transition-all mt-2'
                         }
                     });
                 }
