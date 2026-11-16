@@ -566,12 +566,27 @@
         function openScanner() {
             document.getElementById('scanner-overlay').classList.remove('hidden');
             
+            // ล้างค่าเดิมก่อนสร้างใหม่ป้องกันการค้าง
+            if (html5QrcodeScanner) {
+                try { html5QrcodeScanner.clear(); } catch(e){}
+            }
+            
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                fps: 10, 
-                qrbox: { width: 300, height: 120 }, 
-                aspectRatio: 1.0, 
+                fps: 15, // 🟢 1. เพิ่มเฟรมเรตให้จับภาพได้ไวขึ้น
+                qrbox: { width: 280, height: 100 }, // 🟢 2. บีบความสูงกล่องให้แคบลง เป็นแนวยาว (ลดโอกาสอ่านเลขเพี้ยน)
+                aspectRatio: 1.777778, // 🟢 3. ใช้สัดส่วน 16:9 เพื่อไม่ให้ภาพกล้องเบี้ยว โฟกัสจะชัดขึ้น
                 showTorchButtonIfSupported: true,
-                disableFlip: false 
+                disableFlip: true, // 🟢 4. ปิดฟีเจอร์กลับซ้ายขวา (ประหยัดทรัพยากรเครื่อง)
+                formatsToSupport: [ // 🟢 5. บังคับให้อ่านเฉพาะบาร์โค้ดมาตรฐาน ลดการอ่านมั่วและเพิ่มความเร็ว x3
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.QR_CODE
+                ],
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true // 🟢 6. สำคัญมาก: เปิดใช้ตัวอ่านบาร์โค้ดระดับฮาร์ดแวร์ของมือถือ (ถ้ามี)
+                }
             }, false);
             
             html5QrcodeScanner.render(onScanSuccess);
