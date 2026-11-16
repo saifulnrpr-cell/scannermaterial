@@ -283,7 +283,7 @@
                     if ('speechSynthesis' in window) {
                         let speech = new SpeechSynthesisUtterance("เข้าสู่ระบบสำเร็จ ยินดีต้อนรับค่ะ");
                         speech.lang = 'th-TH'; speech.rate = 1.0; speech.pitch = 1.0;
-                        window.speechSynthesis.speak(speech).catch(e=>{});
+                        window.speechSynthesis.speak(speech); // ✅ ลบ .catch ออก
                     } else {
                         beepSound.play().catch(e=>{});
                     }
