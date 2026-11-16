@@ -21,13 +21,14 @@
 <body class="text-slate-800 h-[100dvh] overflow-hidden flex flex-col bg-slate-50">
 
     <!-- 🟢 Header แสดงชื่อผู้ใช้งานจาก LINE -->
-    <div class="px-5 py-4 bg-white/90 backdrop-blur-xl flex justify-between items-center shrink-0 z-10 border-b border-slate-100 shadow-sm">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+    <div id="main-header" class="px-5 py-4 bg-white/90 backdrop-blur-xl flex justify-between items-center shrink-0 z-10 border-b border-slate-100 shadow-sm transition-colors duration-300">
+        <!-- เพิ่ม onclick="openHeaderMenu()" ตรงนี้ -->
+        <div class="flex items-center gap-3 cursor-pointer active:scale-95 transition-transform" onclick="openHeaderMenu()">
+            <div id="header-icon-bg" class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 transition-colors duration-300">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             </div>
             <div>
-                <h1 class="text-base font-black text-slate-800 leading-tight">ระบบเบิกจ่ายวัสดุ</h1>
+                <h1 id="header-title" class="text-base font-black text-slate-800 leading-tight transition-colors duration-300">ระบบเบิกจ่ายวัสดุ</h1>
                 <div id="status-indicator" class="text-[10px] font-bold text-amber-500 flex items-center gap-1">
                     <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div> กำลังตรวจสอบสิทธิ์...
                 </div>
@@ -167,6 +168,10 @@
         let posCategory = 'all';
         let scanCooldown = false;
         let userRealName = ""; 
+        let userAccessRight = ""; // เก็บสิทธิ์การใช้งาน
+        let isAdminMode = false;  // เช็คว่าเปิดโหมดแอดมินอยู่ไหม
+        let scannerMode = 'dispense'; // 'dispense' หรือ 'admin_edit'
+        let editTargetItem = null; // เก็บ Index สินค้าที่กำลังแก้บาร์โค้ด
 
         const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
@@ -268,7 +273,8 @@
 
                 if (res.status === 'success') {
                     userRealName = res.user.name;
-                    document.getElementById('pos-ref').value = userRealName; 
+                    userAccessRight = res.user.access || ''; // 🟢 เก็บสิทธิ์ผู้ใช้งานจากระบบ
+                    document.getElementById('pos-ref').value = userRealName;
                     
                     // ป้องกันกรณีผู้ใช้ไม่มีรูปโปรไฟล์ใน LINE
                     let picUrl = profile.pictureUrl || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(profile.displayName) + '&background=dbeafe&color=1e40af&size=128&rounded=true&bold=true');
@@ -878,6 +884,295 @@
                 Swal.fire({ title:'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (' + e.message + ')', icon:'error', customClass:{popup:'!rounded-3xl'} });
             });
         }
+
+        // ==========================================
+        // 🟢 ระบบจัดการเมนูส่วนหัว และ โหมดแอดมิน
+        // ==========================================
+        window.openHeaderMenu = function() {
+            let adminBtnHtml = '';
+            if (isAdminMode) {
+                adminBtnHtml = '<button onclick="toggleAdminMode()" class="w-full bg-rose-50 text-rose-600 font-bold py-3.5 rounded-xl border border-rose-200 shadow-sm transition-all flex items-center justify-center gap-2 mb-3"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg> ปิดโหมดแอดมิน (กลับสู่การเบิกจ่าย)</button>';
+            } else {
+                adminBtnHtml = '<button onclick="toggleAdminMode()" class="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mb-3"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg> โหมดจัดการบาร์โค้ด (แอดมิน)</button>';
+            }
+
+            Swal.fire({
+                title: '<span class="font-black text-xl">เมนูตัวเลือก</span>',
+                html: `
+                    <div class="mt-4 font-prompt text-sm">
+                        ${adminBtnHtml}
+                        <button onclick="liff.closeWindow();" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            ปิดแอปพลิเคชัน
+                        </button>
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true,
+                customClass: { popup: '!rounded-[2rem] p-6 max-w-sm' }
+            });
+        };
+
+        window.toggleAdminMode = function() {
+            Swal.close();
+            if (isAdminMode) {
+                // ปิดโหมด
+                isAdminMode = false;
+                scannerMode = 'dispense';
+                document.getElementById('main-header').classList.replace('bg-slate-900', 'bg-white/90');
+                document.getElementById('header-title').classList.replace('text-white', 'text-slate-800');
+                document.getElementById('header-icon-bg').className = "w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 transition-colors duration-300";
+                document.getElementById('floating-cart-btn').style.display = 'flex'; // โชว์ตะกร้า
+                Swal.fire({ title: 'เข้าสู่โหมดเบิกจ่าย', icon: 'success', timer: 1000, showConfirmButton: false });
+                renderPOSProducts();
+            } else {
+                // เปิดโหมด ต้องเช็คสิทธิ์
+                if (userAccessRight.includes('all') || userAccessRight.includes('view-material')) {
+                    activateAdminMode();
+                } else {
+                    // Fallback เผื่อสิทธิ์ดึงมาไม่สมบูรณ์
+                    Swal.fire({
+                        title: 'กรุณายืนยันสิทธิ์แอดมิน',
+                        input: 'password',
+                        inputPlaceholder: 'รหัสผ่าน 6 หลัก...',
+                        showCancelButton: true,
+                        confirmButtonText: 'ยืนยัน',
+                        cancelButtonText: 'ยกเลิก',
+                        customClass: { popup: '!rounded-3xl font-prompt' }
+                    }).then(res => {
+                        if (res.isConfirmed && res.value === '123456') { // 🟢 รหัสผ่านแอดมินสำรอง
+                            activateAdminMode();
+                        } else if (res.isConfirmed) {
+                            Swal.fire('รหัสผ่านไม่ถูกต้อง', '', 'error');
+                        }
+                    });
+                }
+            }
+        };
+
+        function activateAdminMode() {
+            isAdminMode = true;
+            document.getElementById('main-header').classList.replace('bg-white/90', 'bg-slate-900');
+            document.getElementById('header-title').classList.replace('text-slate-800', 'text-white');
+            document.getElementById('header-icon-bg').className = "w-10 h-10 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-white shadow-lg transition-colors duration-300";
+            document.getElementById('floating-cart-btn').style.display = 'none'; // ซ่อนตะกร้า
+            
+            Swal.fire({
+                title: 'โหมดแอดมินเปิดใช้งาน',
+                text: 'แตะที่รายการวัสดุเพื่อเพิ่ม/แก้ไขบาร์โค้ดได้ทันที',
+                icon: 'info',
+                timer: 2000,
+                showConfirmButton: false,
+                customClass: { popup: '!rounded-[2rem] font-prompt' }
+            });
+            renderPOSProducts();
+        }
+
+        // ==========================================
+        // 🟢 เขียนฟังก์ชัน renderPOSProducts ทับใหม่ เพื่อรองรับจุดสีเขียว/แดง ในโหมดแอดมิน
+        // ==========================================
+        window.renderPOSProducts = function() {
+            let container = document.getElementById('pos-product-grid');
+            if(!matStockData || !matStockData.length) return;
+
+            let searchVal = window.posSearchTerm || '';
+            let catVal = window.posCategory || 'all';
+
+            let filtered = matStockData.filter(row => {
+                let qty = parseFloat(row[5]) || 0;
+                // ในโหมดแอดมิน ให้แสดงสินค้าที่หมดสต๊อกด้วย (จะได้ใส่บาร์โค้ดได้)
+                if (!isAdminMode && qty <= 0) return false; 
+                
+                let matchSearch = searchVal === '' || (row[1]||'').toLowerCase().includes(searchVal) || (row[2]||'').toLowerCase().includes(searchVal);
+                let matchCat = catVal === 'all' || (row[4]||'') === catVal;
+                return matchSearch && matchCat;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="col-span-full py-10 flex flex-col items-center justify-center text-slate-400 font-bold"><div class="w-20 h-20 bg-white rounded-full shadow-sm flex items-center justify-center mb-4"><svg class="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg></div><p>ไม่พบวัสดุที่ค้นหา หรือวัสดุหมดสต๊อก</p></div>';
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(row => {
+                let code = row[0], barcode = row[1] || '', name = row[2] || '', cat = row[4] || '-', loc = row[9] || '-';
+                let qty = parseFloat(row[5]) || 0, unit = row[6] || '', price = parseFloat(row[7]) || 0;
+                
+                let theme = getCategoryTheme(cat);
+                let imgs = []; try { imgs = JSON.parse(row[11] || '[]'); } catch(e){}
+                let imgUrl = imgs.length > 0 ? 'https://drive.google.com/thumbnail?id=' + imgs[0] + '&sz=w300' : '';
+                
+                let imgTag = imgUrl ? `<img src="${imgUrl}" class="w-full h-full object-contain p-1 mix-blend-multiply">` : `<div class="w-full h-full flex items-center justify-center text-slate-300"><svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>`;
+
+                let inCart = posCart.find(c => c.index === row.originalIndex);
+                let cartQty = inCart ? inCart.qty : 0;
+                let remain = qty - cartQty;
+                let isDisable = remain <= 0;
+                
+                // 🟢 สร้างจุดสีเขียว/แดง สำหรับโหมดแอดมิน
+                let adminDotHtml = '';
+                if (isAdminMode) {
+                    isDisable = false; // ปลดล็อกให้คลิกได้เสมอในโหมดแอดมิน
+                    if (barcode && barcode !== '-') {
+                        adminDotHtml = '<span class="absolute top-2 left-2 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-md z-20" title="มีบาร์โค้ดแล้ว"></span>';
+                    } else {
+                        adminDotHtml = '<span class="absolute top-2 left-2 w-3.5 h-3.5 bg-rose-500 animate-pulse rounded-full border-2 border-white shadow-md z-20" title="ยังไม่มีบาร์โค้ด"></span>';
+                    }
+                }
+
+                let safeName = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
+                // 🟢 กำหนด Action การคลิกให้แยกกันตามโหมด
+                let actionCall = isAdminMode ? `openBarcodeEditor(${row.originalIndex})` : (isDisable ? '' : `addToCart(${row.originalIndex}, '${code}', '${barcode}', '${safeName}', ${qty}, '${unit}', ${price})`);
+
+                html += `
+                <div class="relative w-full aspect-square rounded-2xl bg-gradient-to-br ${theme.border} p-[2px] shadow-sm active:scale-95 transition-all ${isDisable ? 'opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1'}" onclick="${actionCall}">
+                    <div class="w-full h-full bg-white rounded-[calc(1rem-2px)] flex flex-col overflow-hidden relative">
+                        ${adminDotHtml}
+                        ${!isAdminMode && cartQty > 0 ? `<div class="absolute top-1.5 right-1.5 bg-rose-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">${cartQty}</div>` : ''}
+                        <div class="flex-1 min-h-0 w-full bg-white flex items-center justify-center p-2">${imgTag}</div>
+                        <div class="flex justify-between items-center px-2 py-1.5 gap-1 shrink-0">
+                            <h4 class="text-[11px] font-black text-slate-800 truncate flex-1">${name}</h4>
+                            <div class="bg-gradient-to-r ${theme.badge} text-white rounded px-1.5 py-0.5 flex items-baseline gap-0.5 shrink-0">
+                                <span class="text-sm font-black leading-none">${remain}</span>
+                                <span class="text-[8px] font-bold leading-none">${unit}</span>
+                            </div>
+                        </div>
+                        <div class="border-t border-slate-100 flex justify-between items-center px-2 py-1.5 shrink-0">
+                            <span class="text-[8px] font-black ${theme.text} truncate pr-1">${cat}</span>
+                            <span class="text-[8px] font-black ${theme.text} shrink-0">${loc}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        };
+
+        // ==========================================
+        // 🟢 ระบบสแกนและบันทึกอัปเดตบาร์โค้ด
+        // ==========================================
+        window.openBarcodeEditor = function(index) {
+            let item = matStockData.find(r => r.originalIndex === index);
+            if(!item) return;
+
+            let currentBarcode = item[1] !== '-' ? item[1] : '';
+
+            Swal.fire({
+                title: '<span class="text-xl font-black text-slate-800">จัดการบาร์โค้ด</span>',
+                html: `
+                    <div class="mt-4 font-prompt text-left">
+                        <div class="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4">
+                            <p class="text-[13px] font-bold text-blue-800 line-clamp-2">${item[2]}</p>
+                            <p class="text-[10px] text-blue-500 font-medium mt-1 uppercase tracking-widest">รหัสระบบ: ${item[0]}</p>
+                        </div>
+                        
+                        <label class="text-xs font-bold text-slate-500 ml-1">เลขบาร์โค้ด (พิมพ์แก้หรือสแกน)</label>
+                        <div class="relative mt-1 mb-6">
+                            <input type="text" id="admin-barcode-input" value="${currentBarcode}" placeholder="ระบุบาร์โค้ด..." class="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 focus:border-blue-400 focus:bg-white outline-none shadow-inner tracking-wider">
+                            <button type="button" onclick="startAdminScanner(${index})" class="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition-colors shadow-sm focus:outline-none">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'บันทึกบาร์โค้ด',
+                cancelButtonText: 'ยกเลิก',
+                buttonsStyling: false,
+                customClass: {
+                    popup: '!rounded-[2rem] p-6 max-w-sm',
+                    confirmButton: 'w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all mt-2',
+                    cancelButton: 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3.5 rounded-xl transition-all mt-2'
+                },
+                preConfirm: () => {
+                    return document.getElementById('admin-barcode-input').value.trim();
+                }
+            }).then(res => {
+                if (res.isConfirmed) {
+                    saveAdminBarcode(index, res.value);
+                }
+            });
+        };
+
+        window.startAdminScanner = function(index) {
+            Swal.close();
+            scannerMode = 'admin_edit';
+            editTargetItem = index;
+            openScanner();
+        };
+
+        // 🟢 ปรับปรุง onScanSuccess ให้แยกแยะโหมดการสแกน
+        const originalOnScanSuccess = onScanSuccess;
+        onScanSuccess = function(decodedText) {
+            if (scannerMode === 'admin_edit') {
+                beepSound.play().catch(e=>{});
+                closeScanner();
+                let newBarcode = decodedText.trim();
+                
+                // ตรวจสอบบาร์โค้ดซ้ำกับรายการอื่น
+                let duplicate = matStockData.find(r => r[1] === newBarcode && r.originalIndex !== editTargetItem);
+                if (duplicate) {
+                    Swal.fire({
+                        title: 'บาร์โค้ดซ้ำ!', 
+                        html: 'บาร์โค้ดนี้ถูกใช้งานโดยรายการ<br><b class="text-rose-500">"' + duplicate[2] + '"</b> แล้ว', 
+                        icon: 'error', 
+                        customClass: { popup: '!rounded-[2rem] font-prompt' }
+                    });
+                    scannerMode = 'dispense';
+                    return;
+                }
+                
+                // กลับไปเปิดหน้าต่างยืนยันพร้อมใส่เลขสแกนให้
+                let item = matStockData.find(r => r.originalIndex === editTargetItem);
+                openBarcodeEditor(editTargetItem);
+                setTimeout(() => {
+                    document.getElementById('admin-barcode-input').value = newBarcode;
+                }, 100);
+                scannerMode = 'dispense'; // คืนค่า
+
+            } else {
+                // ทำงานแบบเบิกจ่ายปกติ
+                originalOnScanSuccess(decodedText);
+            }
+        };
+
+        window.saveAdminBarcode = function(index, newBarcode) {
+            let item = matStockData.find(r => r.originalIndex === index);
+            if (!item) return;
+            
+            showGlobalLoading('กำลังอัปเดตบาร์โค้ด...', 'บันทึกข้อมูลไปยังฐานข้อมูล');
+            
+            // สร้าง Payload แบบเต็มส่งกลับไปอัปเดต
+            let payload = {
+                code: item[0],
+                barcode: newBarcode || '-',
+                name: item[2],
+                desc: item[3],
+                category: item[4],
+                location: item[9],
+                min: parseFloat(item[8]) || 0,
+                oldImages: item[11] || '[]'
+            };
+
+            fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'updateMaterialInfo', data: JSON.stringify(payload) })
+            }).then(r => r.json()).then(res => {
+                hideGlobalLoading();
+                if(res.status === 'success') {
+                    Swal.fire({title: 'อัปเดตสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false});
+                    fetchStockData(); // โหลดใหม่เพื่อให้จุดเปลี่ยนเป็นสีเขียว
+                } else {
+                    Swal.fire('ข้อผิดพลาด', res.message, 'error');
+                }
+            }).catch(e => {
+                hideGlobalLoading();
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            });
+        };
+
+        
     </script>
 </body>
 </html>
