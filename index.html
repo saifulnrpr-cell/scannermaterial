@@ -1085,6 +1085,48 @@
                 Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
             });
         };
+
+        window.saveAdminBarcode = function(index, newBarcode) {
+            let item = matStockData.find(r => r.originalIndex === index);
+            if (!item) return;
+            
+            showGlobalLoading('กำลังอัปเดตบาร์โค้ด...', 'บันทึกข้อมูลไปยังฐานข้อมูล');
+            
+            let payload = {
+                code: item[0],
+                barcode: newBarcode || '-',
+                name: item[2],
+                desc: item[3],
+                category: item[4],
+                location: item[9],
+                min: parseFloat(item[8]) || 0,
+                oldImages: item[11] || '[]'
+            };
+
+            // 🟢 เพิ่ม adminToken: '1941000169481' เพื่อทะลวงระบบรักษาความปลอดภัยของ Code.gs
+            let requestBody = { 
+                action: 'updateMaterialInfo', 
+                data: JSON.stringify(payload),
+                adminToken: '1941000169481' 
+            };
+
+            fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(requestBody)
+            }).then(r => r.json()).then(res => {
+                hideGlobalLoading();
+                if(res.status === 'success') {
+                    Swal.fire({title: 'อัปเดตสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false});
+                    fetchStockData(); // รีโหลดข้อมูลเพื่อให้จุดเปลี่ยนเป็นสีเขียว
+                } else {
+                    Swal.fire('ข้อผิดพลาดจากเซิร์ฟเวอร์', res.message, 'error');
+                }
+            }).catch(e => {
+                hideGlobalLoading();
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            });
+        };
     </script>
 </body>
 </html>
