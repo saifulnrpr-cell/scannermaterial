@@ -131,6 +131,27 @@
         </div>
     </div>
 
+    <!-- 🟢 Fallback UI (หน้าจอสำรองเมื่อโหลดค้าง) -->
+    <div id="fallback-ui" class="fixed inset-0 z-[100000] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-md hidden transition-opacity duration-300 opacity-0">
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center max-w-sm w-[90%] border border-slate-100 text-center transform scale-95 transition-transform duration-300" id="fallback-box">
+            <div class="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mb-4 border border-rose-100 shadow-inner">
+                <svg class="w-10 h-10 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 mb-2">เชื่อมต่อระบบล่าช้า</h3>
+            <p class="text-sm font-medium text-slate-500 mb-6">ระบบใช้เวลาเชื่อมนานกว่าปกติ หรือคุณอาจจะยังไม่ได้ยืนยันสิทธิ์เข้าสู่ระบบ LINE</p>
+            
+            <button onclick="manualLiffLogin()" class="w-full bg-[#00B900] hover:bg-[#00A000] text-white font-bold py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 mb-3 focus:outline-none">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 4.269 8.846 10.036 9.608.391.084.922.258 1.057.592.122.303.08.778.039 1.085l-.171 1.027c-.053.303-.242 1.186 1.039.647 1.281-.54 6.911-4.069 9.428-6.967 1.739-1.907 2.572-4.14 2.572-6.002v.01zm-15.549 1.839h-2.186v-3.79c0-.414-.336-.75-.75-.75s-.75.336-.75.75v4.54c0 .414.336.75.75.75h2.936c.414 0 .75-.336.75-.75s-.336-.75-.75-.75zm5.792 0h-2.186v-3.79c0-.414-.336-.75-.75-.75s-.75.336-.75.75v4.54c0 .414.336.75.75.75h2.936c.414 0 .75-.336.75-.75s-.336-.75-.75-.75zm2.844-3.79l-2.023 2.668v-2.668c0-.414-.336-.75-.75-.75s-.75.336-.75.75v4.54c0 .414.336.75.75.75v-2.668l2.023 2.668c.174.229.435.353.696.353.138 0 .278-.031.411-.097.35-.176.574-.53.574-.925v-4.54c0-.414-.336-.75-.75-.75s-.75.336-.75.75v4.54zm-9.351 4.54c0 .414.336.75.75.75s.75-.336.75-.75v-4.54c0-.414-.336-.75-.75-.75s-.75.336-.75.75v4.54z"/></svg>
+                เข้าสู่ระบบด้วย LINE
+            </button>
+            
+            <button onclick="location.reload()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 focus:outline-none">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357-2H15" /></svg>
+                รีเฟรชหน้าจอใหม่
+            </button>
+        </div>
+    </div>
+
     <script>
        
         // ==========================================
@@ -149,63 +170,100 @@
 
         const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
-        // 🟢 เปลี่ยนจาก window.onload มาใช้ Event Listener เพื่อความเสถียร
-        document.addEventListener("DOMContentLoaded", async function() {
+        let liffTimeoutId; // ตัวแปรเก็บ Timer
+
+        document.addEventListener("DOMContentLoaded", function() {
             let ts = new Date();
             document.getElementById('pos-date').value = ts.getFullYear() + "-" + String(ts.getMonth() + 1).padStart(2, '0') + "-" + String(ts.getDate()).padStart(2, '0');
             
+            initLiffSystem();
+        });
+
+        async function initLiffSystem() {
             showGlobalLoading('กำลังเชื่อมต่อระบบ...', 'เพื่อยืนยันตัวตนการเข้าใช้งาน');
             
+            // 🟢 1. ตั้งเวลา 6 วินาที ถ้ายังทำไม่เสร็จ ให้เด้งหน้าจอสำรอง
+            liffTimeoutId = setTimeout(() => {
+                showFallbackUI();
+            }, 6000);
+
             try {
                 await liff.init({ liffId: LIFF_ID });
                 
-                // ตรวจสอบการล็อกอินทันทีหลัง init เสร็จ
                 if (liff.isLoggedIn()) {
+                    clearTimeout(liffTimeoutId); // ยกเลิกการนับเวลาถอยหลัง
                     await processLiffLogin();
                 } else {
-                    // หากยังไม่ล็อกอิน ให้เช็คว่าเป็น LINE In-App Browser หรือไม่
+                    clearTimeout(liffTimeoutId); // ยกเลิกการนับเวลาถอยหลัง
+                    
                     if (liff.isInClient()) {
-                        hideGlobalLoading();
-                        Swal.fire('ข้อผิดพลาดจาก LINE', 'ไม่สามารถอ่านข้อมูลโปรไฟล์ได้ กรุณาปิดแล้วเปิดใหม่', 'error');
-                    } else {
                         liff.login();
+                    } else {
+                        // หากเปิดผ่าน Chrome/Safari นอกแอป LINE ให้โชว์ปุ่มกดล็อกอินเอง เพื่อกัน Browser บล็อก
+                        showFallbackUI();
                     }
                 }
             } catch (err) {
-                hideGlobalLoading();
+                clearTimeout(liffTimeoutId);
                 console.error("LIFF Init Error:", err);
-                Swal.fire('ระบบขัดข้อง', 'การเชื่อมต่อ LIFF ล้มเหลว โปรดลองรีเฟรชหน้าจออีกครั้ง', 'error');
+                showFallbackUI(); // โชว์หน้าสำรองเมื่อเกิด Error
             }
-        });
+        }
 
-        // 🟢 แยกระบบประมวลผลหลังล็อกอินออกมา เพื่อความรวดเร็วและใช้ async/await
+        // 🟢 ฟังก์ชันแสดงหน้าต่างสำรอง
+        function showFallbackUI() {
+            hideGlobalLoading();
+            const fallbackEl = document.getElementById('fallback-ui');
+            const fallbackBox = document.getElementById('fallback-box');
+            if(fallbackEl) {
+                fallbackEl.classList.remove('hidden');
+                // เพิ่มแอนิเมชันให้เนียนตา
+                setTimeout(() => {
+                    fallbackEl.classList.remove('opacity-0');
+                    if(fallbackBox) fallbackBox.classList.replace('scale-95', 'scale-100');
+                }, 50);
+            }
+        }
+
+        // 🟢 ฟังก์ชันเมื่อผู้ใช้กดปุ่มล็อกอินเอง
+        function manualLiffLogin() {
+            if (!liff.isLoggedIn()) {
+                // บังคับให้เปลี่ยนหน้าไปล็อกอินของ LINE
+                liff.login({ redirectUri: window.location.href });
+            } else {
+                // ถ้าล็อกอินแล้วแต่ระบบค้าง ให้บังคับประมวลผลใหม่
+                const fallbackEl = document.getElementById('fallback-ui');
+                if(fallbackEl) fallbackEl.classList.add('hidden');
+                processLiffLogin();
+            }
+        }
+
         async function processLiffLogin() {
+            showGlobalLoading('กำลังตรวจสอบสิทธิ์...', 'เชื่อมต่อฐานข้อมูล...');
             try {
                 const profile = await liff.getProfile();
                 await verifyLiffUser(profile);
             } catch (err) {
                 hideGlobalLoading();
                 console.error("Profile Error:", err);
-                Swal.fire({
-                    title: 'เชื่อมต่อขัดข้อง',
-                    text: 'ไม่สามารถดึงข้อมูลโปรไฟล์จากบัญชี LINE ของคุณได้ โปรดลองอีกครั้ง',
-                    icon: 'warning',
-                    confirmButtonColor: '#3b82f6'
-                }).then(() => {
-                    location.reload(); // บังคับรีเฟรชหากดึงโปรไฟล์ไม่มา
-                });
+                showFallbackUI(); // ดึงโปรไฟล์ไม่สำเร็จ โชว์ปุ่มให้กดใหม่
             }
         }
 
-        // 🟢 ฟังก์ชันตรวจสอบและดึงสิทธิ์ (ใช้ async/await ให้รอเซิร์ฟเวอร์ตอบกลับ)
         async function verifyLiffUser(profile) {
             try {
+                // 🟢 2. เพิ่ม Timeout ให้กับการ Fetch ฐานข้อมูล Google (ป้องกันการค้างจากการดึงข้อมูลนาน)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 12000); // รอไม่เกิน 12 วินาที
+
                 const response = await fetch(GAS_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId })
+                    body: JSON.stringify({ action: 'verifyLiffUser', userId: profile.userId }),
+                    signal: controller.signal
                 });
                 
+                clearTimeout(timeoutId);
                 const res = await response.json();
 
                 if (res.status === 'success') {
@@ -216,7 +274,7 @@
                     statusEl.className = 'text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 shadow-sm transition-all';
                     statusEl.innerHTML = `<img src="${profile.pictureUrl}" class="w-4 h-4 rounded-full border border-emerald-200"> ${userRealName}`;
                     
-                    fetchStockData(); // ดึงสต๊อกเมื่อยืนยันสิทธิ์ผ่านเท่านั้น
+                    fetchStockData(); // ผ่านฉลุย ดึงของมาโชว์
 
                 } else if (res.status === 'pending_approval') {
                     hideGlobalLoading();
@@ -228,7 +286,6 @@
                         showConfirmButton: false,
                         customClass: { popup: '!rounded-[2rem] shadow-2xl' }
                     });
-
                 } else if (res.status === 'not_found') {
                     hideGlobalLoading();
                     promptUserRegistration(profile);
@@ -239,11 +296,10 @@
             } catch (e) {
                 hideGlobalLoading();
                 console.error("Verify Error:", e);
-                Swal.fire({title:'ข้อผิดพลาด', text:'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสิทธิ์ได้', icon:'error', customClass:{popup:'!rounded-[2rem]'}});
+                showFallbackUI(); // หากเน็ตหลุดตอนเช็คสิทธิ์ ให้โชว์ปุ่มกดซ้ำ
             }
         }
 
-        // 🟢 ฟังก์ชันสำหรับการลงทะเบียน
         function promptUserRegistration(profile) {
             Swal.fire({
                 title: 'ลงทะเบียนใช้งานครั้งแรก',
@@ -277,22 +333,15 @@
                     }).then(r => r.json()).then(regRes => {
                         hideGlobalLoading();
                         if (regRes.status === 'pending_approval') {
-                            
                             if ('speechSynthesis' in window) {
                                 let speech = new SpeechSynthesisUtterance("ลงทะเบียนสำเร็จ รอแอดมินอนุมัติคำขอ สักครู่นะคะ");
-                                speech.lang = 'th-TH';
-                                speech.rate = 1.0;
-                                speech.pitch = 1.0;
+                                speech.lang = 'th-TH'; speech.rate = 1.0; speech.pitch = 1.0;
                                 window.speechSynthesis.speak(speech);
                             }
-
                             Swal.fire({
                                 title: '<span class="text-xl font-black text-emerald-600">ลงทะเบียนสำเร็จ!</span>',
                                 html: '<p class="text-slate-600 font-prompt text-sm mt-2">ระบบบันทึกข้อมูลของคุณแล้ว<br><span class="text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-lg mt-2 inline-block shadow-sm">กรุณารอแอดมินอนุมัติสิทธิ์</span><br><br><span class="text-xs text-slate-400">ก่อนเข้าใช้งานระบบเบิกจ่ายครับ</span></p>',
-                                icon: 'success',
-                                allowOutsideClick: false,
-                                showConfirmButton: false,
-                                customClass: { popup: '!rounded-[2rem] shadow-2xl' }
+                                icon: 'success', allowOutsideClick: false, showConfirmButton: false, customClass: { popup: '!rounded-[2rem] shadow-2xl' }
                             });
                         } else {
                             Swal.fire('เกิดข้อผิดพลาด', regRes.message, 'error');
@@ -304,7 +353,6 @@
                 }
             });
         }
-
         function fetchStockData() {
             showGlobalLoading('กำลังดึงข้อมูลวัสดุ...', 'ดึงข้อมูลคลังจากฐานข้อมูล');
             fetch(GAS_URL, { 
