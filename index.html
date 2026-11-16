@@ -919,21 +919,53 @@
                 Swal.fire({ title: 'เข้าสู่โหมดเบิกจ่าย', icon: 'success', timer: 1000, showConfirmButton: false });
                 renderPOSProducts();
             } else {
-                // 🟢 เปิดโหมดแอดมิน (ตรวจสอบสิทธิ์จากชีทโดยตรง)
+                // 🟢 ตรวจสอบสิทธิ์เบื้องต้น
                 if (userAccessRight.includes('all') || userAccessRight.includes('view-material')) {
                     activateAdminMode();
                 } else {
-                    // 🟢 หากไม่มีสิทธิ์ ให้แสดงหน้าต่างแจ้งเตือนและปฏิเสธการเข้าถึง
-                    Swal.fire({
-                        title: '<span class="text-xl font-black text-rose-600">ไม่มีสิทธิ์เข้าถึง</span>',
-                        html: '<p class="text-slate-600 font-prompt mt-2">ฟังก์ชันจัดการบาร์โค้ด <b class="text-rose-500">สงวนไว้สำหรับเจ้าหน้าที่ที่รับผิดชอบเท่านั้น</b> หากต้องการสิทธิ์เพิ่มเติมโปรดติดต่อผู้ดูแลระบบครับ</p>',
-                        icon: 'error',
-                        confirmButtonText: 'ตกลง',
-                        confirmButtonColor: '#e11d48',
-                        customClass: { 
-                            popup: '!rounded-[2rem] font-prompt shadow-2xl p-6',
-                            confirmButton: 'w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl transition-all mt-2'
+                    // 🟢 ตรวจสอบสิทธิ์แบบเจาะลึก (Deep Check) จากฐานข้อมูลโดยตรง
+                    showGlobalLoading('กำลังตรวจสอบสิทธิ์...', 'เชื่อมต่อฐานข้อมูลผู้ใช้งาน...');
+                    
+                    fetch(GAS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'fetchData' })
+                    }).then(r => r.json()).then(res => {
+                        hideGlobalLoading();
+                        let hasAccess = false;
+                        
+                        if (res.status === 'success' && res.usersData) {
+                            // ค้นหาชื่อผู้ใช้จากตาราง usersData (อิงจาก Col A คือชื่อ, Col H คือสิทธิ์)
+                            let userRow = res.usersData.find(u => String(u[0]).trim() === userRealName);
+                            
+                            if (userRow) {
+                                // ดึงข้อมูลสิทธิ์จากคอลัมน์ H (index 7)
+                                userAccessRight = String(userRow[7] || '').toLowerCase(); 
+                                if (userAccessRight.includes('all') || userAccessRight.includes('view-material')) {
+                                    hasAccess = true;
+                                }
+                            }
                         }
+
+                        if (hasAccess) {
+                            activateAdminMode();
+                        } else {
+                            // ไม่มีสิทธิ์จริงๆ ปฏิเสธการเข้าถึง
+                            Swal.fire({
+                                title: '<span class="text-xl font-black text-rose-600">ไม่มีสิทธิ์เข้าถึง</span>',
+                                html: '<p class="text-slate-600 font-prompt mt-2">ฟังก์ชันจัดการบาร์โค้ด <b class="text-rose-500">สงวนไว้สำหรับเจ้าหน้าที่ที่รับผิดชอบเท่านั้น</b> หากต้องการสิทธิ์เพิ่มเติมโปรดติดต่อผู้ดูแลระบบครับ</p>',
+                                icon: 'error',
+                                confirmButtonText: 'ตกลง',
+                                confirmButtonColor: '#e11d48',
+                                customClass: { 
+                                    popup: '!rounded-[2rem] font-prompt shadow-2xl p-6',
+                                    confirmButton: 'w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl transition-all mt-2'
+                                }
+                            });
+                        }
+                    }).catch(e => {
+                        hideGlobalLoading();
+                        Swal.fire('ข้อผิดพลาด', 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองใหม่', 'error');
                     });
                 }
             }
