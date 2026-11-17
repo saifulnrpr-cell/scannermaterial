@@ -1201,7 +1201,7 @@
         }
 
         // ==========================================
-        // 🟢 ระบบสแกนและบันทึกอัปเดตบาร์โค้ด และ รูปภาพ (ปรับโฉมใหม่)
+        // 🟢 ระบบสแกนและบันทึกอัปเดตบาร์โค้ด และ รูปภาพ (ปรับโฉมใหม่ แยกปุ่มถ่ายรูป/อัลบั้ม)
         // ==========================================
         window.openBarcodeEditor = function(index) {
             let item = matStockData.find(r => r.originalIndex === index);
@@ -1229,17 +1229,28 @@
                             <p class="text-[10px] text-blue-500 font-medium mt-1 uppercase tracking-widest">รหัสระบบ: ${item[0]}</p>
                         </div>
                         
-                        <!-- 🟢 เปลี่ยนดีไซน์อัปโหลดรูปให้มีไอคอนกล้อง -->
-                        <label class="text-[11px] font-bold text-slate-500 ml-1 block mb-1">อัปเดตรูปภาพ (ถ่ายรูป หรือ เลือกไฟล์)</label>
-                        <div class="relative mt-1 mb-4">
-                            <input type="text" id="fake-img-input" readonly placeholder="แตะไอคอนกล้องถ่ายรูป..." class="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-400 focus:outline-none shadow-inner tracking-wider cursor-pointer text-xs" onclick="document.getElementById('admin-image-input').click()">
+                        <!-- 🟢 แยก 2 ปุ่มให้ชัดเจน (ถ่ายรูป / เลือกไฟล์) -->
+                        <label class="text-[11px] font-bold text-slate-500 ml-1 block mb-1">อัปเดตรูปภาพ</label>
+                        <div class="flex gap-2 mb-1">
+                            <!-- ซ่อน Input 2 ตัวเพื่อทำงานเบื้องหลัง -->
+                            <input type="file" id="admin-image-camera" accept="image/*" capture="environment" class="hidden" onchange="document.getElementById('fake-img-name').innerText = this.files[0] ? '📷 ' + this.files[0].name : ''; document.getElementById('admin-image-gallery').value = '';">
+                            <input type="file" id="admin-image-gallery" accept="image/*" class="hidden" onchange="document.getElementById('fake-img-name').innerText = this.files[0] ? '🖼️ ' + this.files[0].name : ''; document.getElementById('admin-image-camera').value = '';">
                             
-                            <input type="file" id="admin-image-input" accept="image/*" class="hidden" onchange="document.getElementById('fake-img-input').value = this.files[0] ? this.files[0].name : '';">
+                            <!-- ปุ่มถ่ายรูป (บังคับกล้องหลัง) -->
+                            <button type="button" onclick="document.getElementById('admin-image-camera').click()" class="flex-1 py-2.5 bg-sky-50 text-sky-600 border border-sky-200 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-sky-100 transition-colors focus:outline-none">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <span class="text-[10px] font-bold">ถ่ายรูป</span>
+                            </button>
                             
-                            <button type="button" onclick="document.getElementById('admin-image-input').click()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors shadow-sm focus:outline-none flex items-center justify-center" title="ถ่ายรูป / แนบไฟล์">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <!-- ปุ่มอัลบั้ม (เปิดคลังภาพ) -->
+                            <button type="button" onclick="document.getElementById('admin-image-gallery').click()" class="flex-1 py-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 transition-colors focus:outline-none">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <span class="text-[10px] font-bold">เลือกอัลบั้ม</span>
                             </button>
                         </div>
+                        
+                        <!-- พื้นที่แสดงชื่อไฟล์ที่ถูกเลือก -->
+                        <div id="fake-img-name" class="text-[10px] font-bold text-emerald-600 text-center h-4 truncate mb-3"></div>
 
                         <!-- 🟢 ช่องบาร์โค้ด -->
                         <label class="text-[11px] font-bold text-slate-500 ml-1 block">เลขบาร์โค้ด (พิมพ์แก้หรือสแกน)</label>
@@ -1256,19 +1267,23 @@
                 cancelButtonText: 'ยกเลิก',
                 buttonsStyling: false,
                 customClass: {
-                    popup: '!rounded-[2rem] p-6 max-w-sm',
+                    popup: '!rounded-[2rem] p-5 md:p-6 max-w-sm',
                     confirmButton: 'w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all mt-4',
                     cancelButton: 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3.5 rounded-xl transition-all mt-2'
                 },
                 preConfirm: () => {
                     return new Promise((resolve) => {
                         let barcode = document.getElementById('admin-barcode-input').value.trim();
-                        let imgInput = document.getElementById('admin-image-input');
+                        let camInput = document.getElementById('admin-image-camera');
+                        let galInput = document.getElementById('admin-image-gallery');
+                        
+                        // เช็คว่าผู้ใช้กดเลือกไฟล์จากปุ่มไหน
+                        let file = (camInput.files && camInput.files.length > 0) ? camInput.files[0] : 
+                                   ((galInput.files && galInput.files.length > 0) ? galInput.files[0] : null);
                         
                         let resultPayload = { barcode: barcode, image: null };
 
-                        if (imgInput.files && imgInput.files.length > 0) {
-                            let file = imgInput.files[0];
+                        if (file) {
                             if (file.size > 2 * 1024 * 1024) {
                                 Swal.showValidationMessage('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 2MB');
                                 resolve(false);
