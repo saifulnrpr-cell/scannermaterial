@@ -115,9 +115,26 @@
                 <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <div class="flex-1 flex flex-col items-center justify-center p-4">
+
+        <!-- 🟢 เมนูสลับโหมดสแกน (Normal / Continuous) -->
+        <div class="px-5 mt-2 flex justify-center">
+            <div class="bg-slate-800 p-1.5 rounded-xl flex items-center gap-1 shadow-inner w-full max-w-sm relative">
+                <button id="btn-scan-normal" onclick="setScanMode('normal')" class="flex-1 py-2 rounded-lg text-[11px] font-bold bg-blue-500 text-white shadow-sm transition-all focus:outline-none tracking-wide">ระบุจำนวน</button>
+                <button id="btn-scan-continuous" onclick="setScanMode('continuous')" class="flex-1 py-2 rounded-lg text-[11px] font-bold bg-transparent text-slate-400 hover:text-white transition-all focus:outline-none flex items-center justify-center gap-1 tracking-wide">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> สแกนรัว (ทีละ 1)
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col items-center justify-center p-4 relative">
             <div id="reader" class="w-full"></div>
-            <p class="text-slate-400 text-sm mt-6 text-center">หันกล้องไปที่บาร์โค้ดเพื่อค้นหาและเลือกจำนวน</p>
+            <p id="scanner-instruction" class="text-slate-400 text-sm mt-6 text-center">หันกล้องไปที่บาร์โค้ดเพื่อค้นหาและเลือกจำนวน</p>
+            
+            <!-- 🟢 แจ้งเตือนแบบ Toast ลอยขึ้นมาเวลาสแกนรัว -->
+            <div id="scan-toast" class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-emerald-500/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.3)] text-sm font-bold flex items-center gap-2 transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-none z-10 whitespace-nowrap border border-white/20">
+                <span id="scan-toast-icon"></span>
+                <span id="scan-toast-text">เพิ่มลงตะกร้าแล้ว</span>
+            </div>
         </div>
     </div>
 
@@ -563,30 +580,70 @@
             container.innerHTML = html;
         }
 
+        // ==========================================
+        // 🟢 ระบบจัดการกล้อง และ โหมดสแกนต่อเนื่อง (Batch Scan)
+        // ==========================================
+        let isContinuousScanMode = false;
+
+        window.setScanMode = function(mode) {
+            isContinuousScanMode = (mode === 'continuous');
+            const btnNormal = document.getElementById('btn-scan-normal');
+            const btnCont = document.getElementById('btn-scan-continuous');
+            const instruction = document.getElementById('scanner-instruction');
+            
+            if (isContinuousScanMode) {
+                btnNormal.className = "flex-1 py-2 rounded-lg text-[11px] font-bold bg-transparent text-slate-400 hover:text-white transition-all focus:outline-none tracking-wide";
+                btnCont.className = "flex-1 py-2 rounded-lg text-[11px] font-bold bg-emerald-500 text-white shadow-sm transition-all focus:outline-none flex items-center justify-center gap-1 tracking-wide";
+                instruction.innerHTML = 'โหมดสแกนรัว: <span class="text-emerald-400">ระบบจะเพิ่มของใส่ตะกร้าทีละ 1 ชิ้นอัตโนมัติ</span>';
+            } else {
+                btnNormal.className = "flex-1 py-2 rounded-lg text-[11px] font-bold bg-blue-500 text-white shadow-sm transition-all focus:outline-none tracking-wide";
+                btnCont.className = "flex-1 py-2 rounded-lg text-[11px] font-bold bg-transparent text-slate-400 hover:text-white transition-all focus:outline-none flex items-center justify-center gap-1 tracking-wide";
+                instruction.innerText = "หันกล้องไปที่บาร์โค้ดเพื่อค้นหาและเลือกจำนวน";
+            }
+        }
+
+        window.showScannerToast = function(msg, type = 'success') {
+            const toast = document.getElementById('scan-toast');
+            const textEl = document.getElementById('scan-toast-text');
+            const iconEl = document.getElementById('scan-toast-icon');
+            if(!toast || !textEl) return;
+            
+            textEl.innerText = msg;
+            if(type === 'error') {
+                toast.classList.replace('bg-emerald-500/90', 'bg-rose-500/90');
+                if(!toast.classList.contains('bg-rose-500/90')) toast.classList.add('bg-rose-500/90'); // Fallback
+                iconEl.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>';
+            } else {
+                toast.classList.remove('bg-rose-500/90');
+                toast.classList.add('bg-emerald-500/90');
+                iconEl.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+            }
+
+            toast.classList.remove('translate-y-10', 'opacity-0');
+            
+            // ซ่อนอัตโนมัติหลังผ่านไป 1.5 วินาที
+            setTimeout(() => { toast.classList.add('translate-y-10', 'opacity-0'); }, 1500);
+        }
+
         function openScanner() {
             document.getElementById('scanner-overlay').classList.remove('hidden');
             
-            // ล้างค่าเดิมก่อนสร้างใหม่ป้องกันการค้าง
-            if (html5QrcodeScanner) {
-                try { html5QrcodeScanner.clear(); } catch(e){}
-            }
+            if (html5QrcodeScanner) { try { html5QrcodeScanner.clear(); } catch(e){} }
             
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                fps: 15, // 🟢 1. เพิ่มเฟรมเรตให้จับภาพได้ไวขึ้น
-                qrbox: { width: 280, height: 100 }, // 🟢 2. บีบความสูงกล่องให้แคบลง เป็นแนวยาว (ลดโอกาสอ่านเลขเพี้ยน)
-                aspectRatio: 1.777778, // 🟢 3. ใช้สัดส่วน 16:9 เพื่อไม่ให้ภาพกล้องเบี้ยว โฟกัสจะชัดขึ้น
+                fps: 15, 
+                qrbox: { width: 280, height: 100 }, 
+                aspectRatio: 1.777778,
                 showTorchButtonIfSupported: true,
-                disableFlip: true, // 🟢 4. ปิดฟีเจอร์กลับซ้ายขวา (ประหยัดทรัพยากรเครื่อง)
-                formatsToSupport: [ // 🟢 5. บังคับให้อ่านเฉพาะบาร์โค้ดมาตรฐาน ลดการอ่านมั่วและเพิ่มความเร็ว x3
+                disableFlip: true,
+                formatsToSupport: [
                     Html5QrcodeSupportedFormats.CODE_128,
                     Html5QrcodeSupportedFormats.EAN_13,
                     Html5QrcodeSupportedFormats.EAN_8,
                     Html5QrcodeSupportedFormats.UPC_A,
                     Html5QrcodeSupportedFormats.QR_CODE
                 ],
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true // 🟢 6. สำคัญมาก: เปิดใช้ตัวอ่านบาร์โค้ดระดับฮาร์ดแวร์ของมือถือ (ถ้ามี)
-                }
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
             }, false);
             
             html5QrcodeScanner.render(onScanSuccess);
@@ -595,11 +652,13 @@
         function closeScanner() {
             document.getElementById('scanner-overlay').classList.add('hidden');
             if (html5QrcodeScanner) html5QrcodeScanner.clear();
+            scanCooldown = false; // เคลียร์ระบบป้องกันการสแกนเบิ้ล
         }
 
         function onScanSuccess(decodedText) {
             if (scannerMode === 'admin_edit') {
                 beepSound.play().catch(e=>{});
+                if (navigator.vibrate) navigator.vibrate(100); 
                 closeScanner();
                 let newBarcode = decodedText.trim();
                 
@@ -625,13 +684,13 @@
                 if (scanCooldown) return; 
                 scanCooldown = true;
                 
-                if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
-
                 let barcode = decodedText.trim().toLowerCase();
                 let foundItem = matStockData.find(r => (r[1]||'').toLowerCase() === barcode || (r[0]||'').toLowerCase() === barcode);
                 
                 if (foundItem) {
+                    // 🟢 สแกนติด! สั่งให้มีเสียงและมือถือสั่น
                     beepSound.play().catch(e=>{});
+                    if (navigator.vibrate) navigator.vibrate([100]); 
                     
                     let existingInCart = posCart.find(c => c.index === foundItem.originalIndex);
                     let cartQty = existingInCart ? existingInCart.qty : 0;
@@ -639,73 +698,107 @@
                     let remain = max - cartQty;
 
                     if(remain <= 0) {
+                        if (isContinuousScanMode) {
+                            showScannerToast('สต๊อกหมด! ไม่สามารถเบิกเพิ่มได้', 'error');
+                            if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // สั่นเตือน
+                            setTimeout(() => { scanCooldown = false; }, 1500);
+                        } else {
+                            if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
+                            Swal.fire({
+                                title: 'สต๊อกหมด!', text: 'ไม่สามารถเบิกวัสดุนี้เพิ่มได้แล้ว', icon: 'error',
+                                confirmButtonText: 'รับทราบ', customClass: { popup: '!rounded-[2rem]' }
+                            }).then(() => {
+                                scanCooldown = false;
+                                if (html5QrcodeScanner) html5QrcodeScanner.resume();
+                            });
+                        }
+                        return;
+                    }
+
+                    if (isContinuousScanMode) {
+                        // 🟢 [โหมดสแกนรัว] จับใส่ตะกร้า 1 ชิ้น โชว์แจ้งเตือน แล้วพร้อมสแกนต่อทันที
+                        addToCartBulk(foundItem.originalIndex, foundItem[0], foundItem[1], foundItem[2], max, foundItem[6], parseFloat(foundItem[7]), 1);
+                        
+                        let updatedItem = posCart.find(c => c.index === foundItem.originalIndex);
+                        showScannerToast(`เพิ่ม ${foundItem[2]} (${updatedItem.qty} ${foundItem[6]||''})`, 'success');
+                        
+                        // หยุดกล้องพักหายใจ 1.2 วินาที ป้องกันการยิงบาร์โค้ดเดิมเบิ้ลรัวๆ
+                        if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
+                        setTimeout(() => { 
+                            scanCooldown = false; 
+                            if (html5QrcodeScanner) html5QrcodeScanner.resume(); 
+                        }, 1200); 
+
+                    } else {
+                        // 🟢 [โหมดปกติ] หยุดกล้องแล้วเด้งหน้าต่างถามจำนวน
+                        if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
+
                         Swal.fire({
-                            title: 'สต๊อกหมด!', text: 'ไม่สามารถเบิกวัสดุนี้เพิ่มได้แล้ว', icon: 'error',
-                            confirmButtonText: 'รับทราบ', customClass: { popup: '!rounded-3xl' }
+                            title: '<span class="text-xl font-black">พบวัสดุในคลัง</span>',
+                            html: `
+                                <div class="mt-2 text-center font-prompt">
+                                    <h3 class="text-lg font-bold text-blue-600">${foundItem[2]}</h3>
+                                    <p class="text-xs text-slate-400 uppercase tracking-widest mt-1 mb-4">รหัส: ${foundItem[1] || foundItem[0]}</p>
+                                    
+                                    <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">ระบุจำนวนที่ต้องการเบิก (คงเหลือ ${remain} ${foundItem[6]||''})</p>
+                                    
+                                    <div class="flex items-center justify-center gap-4 bg-slate-50 py-3 px-6 rounded-[2rem] border border-slate-100 w-max mx-auto shadow-inner">
+                                        <button type="button" onclick="adjustScanQty(-1, ${remain})" class="w-12 h-12 bg-white rounded-full shadow-sm text-rose-500 font-bold text-2xl flex items-center justify-center active:scale-95 focus:outline-none">-</button>
+                                        <input type="number" id="scan-qty-input" value="1" min="1" max="${remain}" class="w-16 bg-transparent text-center text-3xl font-black text-slate-800 outline-none" readonly>
+                                        <button type="button" onclick="adjustScanQty(1, ${remain})" class="w-12 h-12 bg-white rounded-full shadow-sm text-blue-600 font-bold text-2xl flex items-center justify-center active:scale-95 focus:outline-none">+</button>
+                                    </div>
+                                </div>
+                            `,
+                            showDenyButton: true,
+                            showCancelButton: true,
+                            confirmButtonText: 'หยิบใส่ตะกร้า (กลับหน้าหลัก)',
+                            denyButtonText: 'หยิบใส่ตะกร้า (สแกนต่อ)',
+                            cancelButtonText: 'ยกเลิก',
+                            buttonsStyling: false,
+                            customClass: {
+                                popup: '!rounded-[2.5rem] w-[90vw] max-w-sm p-6 shadow-2xl',
+                                actions: 'flex-col gap-2 w-full mt-6',
+                                confirmButton: 'w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-2xl shadow-md transition-all',
+                                denyButton: 'w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3.5 rounded-2xl shadow-md transition-all',
+                                cancelButton: 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3.5 rounded-2xl transition-all'
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed || result.isDenied) {
+                                let addQty = parseInt(document.getElementById('scan-qty-input').value) || 1;
+                                addToCartBulk(foundItem.originalIndex, foundItem[0], foundItem[1], foundItem[2], max, foundItem[6], parseFloat(foundItem[7]), addQty);
+
+                                if (result.isConfirmed) {
+                                    closeScanner(); 
+                                    scanCooldown = false;
+                                } else if (result.isDenied) {
+                                    scanCooldown = false;
+                                    if (html5QrcodeScanner) html5QrcodeScanner.resume(); 
+                                }
+                            } else {
+                                scanCooldown = false;
+                                if (html5QrcodeScanner) html5QrcodeScanner.resume(); 
+                            }
+                        });
+                    }
+
+                } else {
+                    if (isContinuousScanMode) {
+                        // 🟢 ถ้าสแกนรัวแล้วของไม่ตรง ให้ขึ้นสีแดง
+                        if (navigator.vibrate) navigator.vibrate([150, 100, 150]); 
+                        showScannerToast('ไม่พบข้อมูลวัสดุนี้ในคลัง', 'error');
+                        setTimeout(() => { scanCooldown = false; }, 1500);
+                    } else {
+                        if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
+                        Swal.fire({
+                            title: '<span class="text-xl font-black text-rose-500">ไม่พบข้อมูล</span>', 
+                            html: '<p class="text-slate-500 font-prompt">บาร์โค้ด <span class="font-bold text-slate-800">"'+ barcode +'"</span> ไม่มีในระบบคลังวัสดุครับ</p>', 
+                            icon: 'warning',
+                            confirmButtonText: 'ลองสแกนอีกครั้ง', confirmButtonColor: '#3b82f6', customClass: { popup: '!rounded-[2rem]' }
                         }).then(() => {
                             scanCooldown = false;
                             if (html5QrcodeScanner) html5QrcodeScanner.resume();
                         });
-                        return;
                     }
-
-                    Swal.fire({
-                        title: '<span class="text-xl font-black">พบวัสดุในคลัง</span>',
-                        html: `
-                            <div class="mt-2 text-center font-prompt">
-                                <h3 class="text-lg font-bold text-blue-600">${foundItem[2]}</h3>
-                                <p class="text-xs text-slate-400 uppercase tracking-widest mt-1 mb-4">รหัส: ${foundItem[1] || foundItem[0]}</p>
-                                
-                                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">ระบุจำนวนที่ต้องการเบิก (คงเหลือ ${remain} ${foundItem[6]||''})</p>
-                                
-                                <div class="flex items-center justify-center gap-4 bg-slate-50 py-3 px-6 rounded-[2rem] border border-slate-100 w-max mx-auto shadow-inner">
-                                    <button type="button" onclick="adjustScanQty(-1, ${remain})" class="w-12 h-12 bg-white rounded-full shadow-sm text-rose-500 font-bold text-2xl flex items-center justify-center active:scale-95 focus:outline-none">-</button>
-                                    <input type="number" id="scan-qty-input" value="1" min="1" max="${remain}" class="w-16 bg-transparent text-center text-3xl font-black text-slate-800 outline-none" readonly>
-                                    <button type="button" onclick="adjustScanQty(1, ${remain})" class="w-12 h-12 bg-white rounded-full shadow-sm text-blue-600 font-bold text-2xl flex items-center justify-center active:scale-95 focus:outline-none">+</button>
-                                </div>
-                            </div>
-                        `,
-                        showDenyButton: true,
-                        showCancelButton: true,
-                        confirmButtonText: 'หยิบใส่ตะกร้า (กลับหน้าหลัก)',
-                        denyButtonText: 'หยิบใส่ตะกร้า (สแกนต่อ)',
-                        cancelButtonText: 'ยกเลิก',
-                        buttonsStyling: false,
-                        customClass: {
-                            popup: '!rounded-[2.5rem] w-[90vw] max-w-sm p-6 shadow-2xl',
-                            actions: 'flex-col gap-2 w-full mt-6',
-                            confirmButton: 'w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-2xl shadow-md transition-all',
-                            denyButton: 'w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3.5 rounded-2xl shadow-md transition-all',
-                            cancelButton: 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3.5 rounded-2xl transition-all'
-                        }
-                    }).then((result) => {
-                        if (result.isConfirmed || result.isDenied) {
-                            let addQty = parseInt(document.getElementById('scan-qty-input').value) || 1;
-                            addToCartBulk(foundItem.originalIndex, foundItem[0], foundItem[1], foundItem[2], max, foundItem[6], parseFloat(foundItem[7]), addQty);
-
-                            if (result.isConfirmed) {
-                                closeScanner(); 
-                                scanCooldown = false;
-                            } else if (result.isDenied) {
-                                scanCooldown = false;
-                                if (html5QrcodeScanner) html5QrcodeScanner.resume(); 
-                            }
-                        } else {
-                            scanCooldown = false;
-                            if (html5QrcodeScanner) html5QrcodeScanner.resume(); 
-                        }
-                    });
-
-                } else {
-                    Swal.fire({
-                        title: '<span class="text-xl font-black text-rose-500">ไม่พบข้อมูล</span>', 
-                        html: '<p class="text-slate-500 font-prompt">บาร์โค้ด <span class="font-bold text-slate-800">"'+ barcode +'"</span> ไม่มีในระบบคลังวัสดุครับ</p>', 
-                        icon: 'warning',
-                        confirmButtonText: 'ลองสแกนอีกครั้ง', confirmButtonColor: '#3b82f6', customClass: { popup: '!rounded-[2rem]' }
-                    }).then(() => {
-                        scanCooldown = false;
-                        if (html5QrcodeScanner) html5QrcodeScanner.resume();
-                    });
                 }
             }
         }
