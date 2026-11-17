@@ -658,7 +658,7 @@
         function onScanSuccess(decodedText) {
             if (scannerMode === 'admin_edit') {
                 beepSound.play().catch(e=>{});
-                if (navigator.vibrate) navigator.vibrate(100); 
+                if (navigator.vibrate) navigator.vibrate([100]); 
                 closeScanner();
                 let newBarcode = decodedText.trim();
                 
@@ -688,7 +688,7 @@
                 let foundItem = matStockData.find(r => (r[1]||'').toLowerCase() === barcode || (r[0]||'').toLowerCase() === barcode);
                 
                 if (foundItem) {
-                    // 🟢 สแกนติด! สั่งให้มีเสียงและมือถือสั่น
+                    // 🟢 สแกนติด! สั่งให้มีเสียงและมือถือสั่นตอบสนอง
                     beepSound.play().catch(e=>{});
                     if (navigator.vibrate) navigator.vibrate([100]); 
                     
@@ -697,32 +697,31 @@
                     let max = parseFloat(foundItem[5]) || 0;
                     let remain = max - cartQty;
 
+                    // 🟢 ตรวจสอบสต๊อกหมด (ทำงานเหมือนกันทั้งโหมดปกติและโหมดรัว)
                     if(remain <= 0) {
-                        if (isContinuousScanMode) {
-                            showScannerToast('สต๊อกหมด! ไม่สามารถเบิกเพิ่มได้', 'error');
-                            if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // สั่นเตือน
-                            setTimeout(() => { scanCooldown = false; }, 1500);
-                        } else {
-                            if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
-                            Swal.fire({
-                                title: 'สต๊อกหมด!', text: 'ไม่สามารถเบิกวัสดุนี้เพิ่มได้แล้ว', icon: 'error',
-                                confirmButtonText: 'รับทราบ', customClass: { popup: '!rounded-[2rem]' }
-                            }).then(() => {
-                                scanCooldown = false;
-                                if (html5QrcodeScanner) html5QrcodeScanner.resume();
-                            });
-                        }
+                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // สั่นเตือน Error (ยาว-สั้น-ยาว)
+                        if (html5QrcodeScanner) html5QrcodeScanner.pause(true); // บังคับหยุดกล้อง
+                        
+                        Swal.fire({
+                            title: 'สต๊อกหมด!', 
+                            text: 'ไม่สามารถเบิกวัสดุ "' + foundItem[2] + '" เพิ่มได้แล้ว', 
+                            icon: 'error',
+                            confirmButtonText: 'รับทราบ', 
+                            customClass: { popup: '!rounded-[2rem] font-prompt' }
+                        }).then(() => {
+                            scanCooldown = false;
+                            if (html5QrcodeScanner) html5QrcodeScanner.resume(); // กลับมาสแกนต่อเมื่อกดรับทราบ
+                        });
                         return;
                     }
 
                     if (isContinuousScanMode) {
-                        // 🟢 [โหมดสแกนรัว] จับใส่ตะกร้า 1 ชิ้น โชว์แจ้งเตือน แล้วพร้อมสแกนต่อทันที
+                        // 🟢 [โหมดสแกนรัว]
                         addToCartBulk(foundItem.originalIndex, foundItem[0], foundItem[1], foundItem[2], max, foundItem[6], parseFloat(foundItem[7]), 1);
                         
                         let updatedItem = posCart.find(c => c.index === foundItem.originalIndex);
                         showScannerToast(`เพิ่ม ${foundItem[2]} (${updatedItem.qty} ${foundItem[6]||''})`, 'success');
                         
-                        // หยุดกล้องพักหายใจ 1.2 วินาที ป้องกันการยิงบาร์โค้ดเดิมเบิ้ลรัวๆ
                         if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
                         setTimeout(() => { 
                             scanCooldown = false; 
@@ -730,7 +729,7 @@
                         }, 1200); 
 
                     } else {
-                        // 🟢 [โหมดปกติ] หยุดกล้องแล้วเด้งหน้าต่างถามจำนวน
+                        // 🟢 [โหมดปกติ]
                         if (html5QrcodeScanner) html5QrcodeScanner.pause(true);
 
                         Swal.fire({
@@ -783,7 +782,7 @@
 
                 } else {
                     if (isContinuousScanMode) {
-                        // 🟢 ถ้าสแกนรัวแล้วของไม่ตรง ให้ขึ้นสีแดง
+                        // ไม่พบข้อมูล
                         if (navigator.vibrate) navigator.vibrate([150, 100, 150]); 
                         showScannerToast('ไม่พบข้อมูลวัสดุนี้ในคลัง', 'error');
                         setTimeout(() => { scanCooldown = false; }, 1500);
@@ -793,7 +792,7 @@
                             title: '<span class="text-xl font-black text-rose-500">ไม่พบข้อมูล</span>', 
                             html: '<p class="text-slate-500 font-prompt">บาร์โค้ด <span class="font-bold text-slate-800">"'+ barcode +'"</span> ไม่มีในระบบคลังวัสดุครับ</p>', 
                             icon: 'warning',
-                            confirmButtonText: 'ลองสแกนอีกครั้ง', confirmButtonColor: '#3b82f6', customClass: { popup: '!rounded-[2rem]' }
+                            confirmButtonText: 'ลองสแกนอีกครั้ง', confirmButtonColor: '#3b82f6', customClass: { popup: '!rounded-[2rem] font-prompt' }
                         }).then(() => {
                             scanCooldown = false;
                             if (html5QrcodeScanner) html5QrcodeScanner.resume();
@@ -868,9 +867,12 @@
         }
 
         window.submitPOS = function() {
+            // 🟢 เพิ่มระบบสั่นตอบสนอง (Haptic Feedback) เมื่อกดปุ่มยืนยันตัดสต๊อก
+            if (navigator.vibrate) navigator.vibrate([100]); 
+            
             let ref = document.getElementById('pos-ref').value.trim();
             if(!ref) {
-                Swal.fire({title: 'ข้อมูลไม่ครบ', text: 'ชื่อผู้เบิกจะถูกใส่ให้อัตโนมัติจาก LINE (หากไม่มี โปรดตรวจสอบการล็อกอิน)', icon: 'warning', confirmButtonColor: '#3b82f6', customClass:{popup:'!rounded-[2rem]'}});
+                Swal.fire({title: 'ข้อมูลไม่ครบ', text: 'ชื่อผู้เบิกจะถูกใส่ให้อัตโนมัติจาก LINE (หากไม่มี โปรดตรวจสอบการล็อกอิน)', icon: 'warning', confirmButtonColor: '#3b82f6', customClass:{popup:'!rounded-[2rem] font-prompt'}});
                 return;
             }
 
@@ -921,6 +923,7 @@
                     } else {
                         beepSound.play().catch(e=>{});
                     }
+                    if (navigator.vibrate) navigator.vibrate([100, 100, 100]); // สั่นฉลองเมื่อสำเร็จ
 
                     let countdown = 10;
                     let timerInterval;
@@ -978,11 +981,11 @@
                     toggleCartModal(false);
 
                 } else {
-                    Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message || 'ไม่ทราบสาเหตุจากเซิร์ฟเวอร์', icon:'error', customClass:{popup:'!rounded-3xl'} });
+                    Swal.fire({ title:'เกิดข้อผิดพลาด', text: res.message || 'ไม่ทราบสาเหตุจากเซิร์ฟเวอร์', icon:'error', customClass:{popup:'!rounded-[2rem] font-prompt'} });
                 }
             }).catch(e => {
                 hideGlobalLoading();
-                Swal.fire({ title:'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (' + e.message + ')', icon:'error', customClass:{popup:'!rounded-3xl'} });
+                Swal.fire({ title:'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (' + e.message + ')', icon:'error', customClass:{popup:'!rounded-[2rem] font-prompt'} });
             });
         }
 
